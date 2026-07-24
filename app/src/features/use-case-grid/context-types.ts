@@ -1,5 +1,15 @@
 import type { Accessor } from "solid-js";
-import type { Brief, ColumnId, FocusedOutput, Intent, Profile, RowId, UseCase } from "./domain";
+import type {
+  Brief,
+  ColumnId,
+  Direction,
+  FocusedOutput,
+  GridOutput,
+  Intent,
+  Profile,
+  RowId,
+  UseCase,
+} from "./domain";
 
 export type Screen = "landing" | "profile-review" | "grid" | "focus" | "brief";
 
@@ -8,7 +18,11 @@ export type GridState = {
   source: "example" | "profile-upload" | null;
   intent: Intent;
   profile: Profile | null;
+  directions: Direction[];
+  selectedDirectionIds: string[];
   useCases: UseCase[];
+  generationHistory: GridOutput[];
+  generationIndex: number;
   selectedIds: string[];
   dismissedIds: string[];
   savedIdeas: UseCase[];
@@ -17,7 +31,7 @@ export type GridState = {
   focus: FocusedOutput | null;
   focusChoice: string | null;
   brief: Brief | null;
-  pending: "grid" | "focus" | "brief" | null;
+  pending: "profile" | "grid" | "regenerate" | "focus" | "brief" | null;
   error: string | null;
   notice: string | null;
 };
@@ -30,7 +44,14 @@ export type GridContextValue = {
   startExample: () => void;
   generatePersonalGrid: () => Promise<void>;
   updateProfileSummary: (summary: string) => void;
-  continueToGrid: () => void;
+  toggleDirection: (id: string) => void;
+  selectAllDirections: () => void;
+  continueToGrid: () => Promise<void>;
+  regenerateGrid: (input: {
+    refinementAnswers: Record<string, string>;
+    feedback: string;
+  }) => Promise<boolean>;
+  showGeneration: (index: number) => void;
   reset: () => void;
   openUseCase: (id: string) => void;
   closeUseCase: () => void;
@@ -55,7 +76,11 @@ export const initialState = (): GridState => ({
   source: null,
   intent: {},
   profile: null,
+  directions: [],
+  selectedDirectionIds: [],
   useCases: [],
+  generationHistory: [],
+  generationIndex: 0,
   selectedIds: [],
   dismissedIds: [],
   savedIdeas: [],

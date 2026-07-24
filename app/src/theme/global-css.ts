@@ -12,6 +12,7 @@ export const globalCss = {
     body: {
       background: "brand.canvas",
       color: "brand.ink",
+      fontFamily: '"Avenir Next", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif',
       margin: "0",
       minHeight: "100dvh",
     },

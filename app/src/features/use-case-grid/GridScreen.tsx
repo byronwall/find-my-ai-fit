@@ -1,9 +1,10 @@
-import { ArrowRight, Eye, RotateCcw, Sparkles } from "lucide-solid";
-import { createMemo, For, Show } from "solid-js";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-solid";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { createStore } from "solid-js/store";
-import { Box, HStack, VStack } from "styled-system/jsx";
-import { Button, Text } from "~/components/ui";
+import { Box } from "styled-system/jsx";
+import { Button, Tooltip } from "~/components/ui";
 import { useUseCaseGrid } from "./context";
+import { GenerationDialog } from "./GenerationDialog";
 import {
   cellKey,
   columnIds,
@@ -17,17 +18,14 @@ import {
 } from "./domain";
 import { styles } from "./styles";
 import { UseCaseCard } from "./UseCaseCard";
-import { UseCaseDetail } from "./UseCaseDetail";
 
 type CellProps = {
-  rowId: RowId;
-  columnId: ColumnId;
   useCases: UseCase[];
 };
 
 function CellContent(props: CellProps) {
   const grid = useUseCaseGrid();
-  const visible = () => props.useCases.filter((item) => !grid.state.dismissedIds.includes(item.id)).slice(0, 2);
+  const visible = () => props.useCases.slice(0, 2);
 
   return (
     <>
@@ -36,75 +34,82 @@ function CellContent(props: CellProps) {
           <UseCaseCard
             useCase={useCase}
             selected={grid.isSelected(useCase.id)}
-            saved={grid.isSaved(useCase.id)}
-            onOpen={() => grid.openUseCase(useCase.id)}
             onToggleSelected={() => grid.toggleSelected(useCase.id)}
-            onToggleSaved={() => grid.toggleSaved(useCase.id)}
-            onDismiss={() => grid.dismiss(useCase.id)}
           />
         )}
       </For>
-      <Button
-        class={styles.exploreButton}
-        size="sm"
-        variant="plain"
-        loading={grid.state.pending === "focus" && grid.state.activeCell?.rowId === props.rowId && grid.state.activeCell?.columnId === props.columnId}
-        loadingText="Exploring…"
-        onClick={() => void grid.exploreCell(props.rowId, props.columnId)}
-      >
-        <Sparkles size={15} /> Explore this area <ArrowRight size={15} />
-      </Button>
     </>
   );
 }
 
 export function GridScreen() {
   const grid = useUseCaseGrid();
+  const [generationOpen, setGenerationOpen] = createSignal(false);
   const groups = createMemo(() => groupUseCases(grid.state.useCases));
   const [mobileColumns, setMobileColumns] = createStore<Record<RowId, ColumnId>>({
-    individual: "faster",
-    team: "decisions",
-    organization: "faster",
+    prepare: "faster",
+    deliver: "decisions",
+    improve: "faster",
   });
-  const active = () => grid.activeUseCase();
-
   return (
-    <main class={styles.page}>
-      <VStack alignItems="stretch" gap="2" mb="6">
-        <span class={styles.eyebrow}><Sparkles size={16} /> Personalized opportunity map</span>
-        <Box as="h1" fontFamily="Georgia, serif" fontSize={{ base: "4xl", md: "5xl" }} lineHeight="1.05">
-          Your AI use case grid
-        </Box>
-        <Text color="brand.muted" maxW="3xl" fontSize="lg">
-          Scan the whole space, mark what feels relevant, and explore one intersection when you want narrower ideas.
-        </Text>
-      </VStack>
-
-      <div class={styles.summaryBar}>
-        <HStack gap="4" flexWrap="wrap">
-          <HStack gap="2"><Eye size={18} color="var(--colors-brand-green)" /><Text fontWeight="semibold">{grid.state.useCases.length} personalized opportunities</Text></HStack>
-          <Text color="brand.muted">{grid.state.selectedIds.length} selected · {grid.state.savedIdeas.length} saved for later</Text>
-        </HStack>
-        <HStack gap="2" flexWrap="wrap">
-          <Show when={grid.state.dismissedIds.length > 0}>
-            <Button size="sm" variant="plain" onClick={grid.restoreDismissed}><RotateCcw size={15} /> Restore dismissed</Button>
+    <main class={`${styles.page} ${styles.gridPage}`}>
+      <div class={styles.gridIntro}>
+        <div>
+          <span class={styles.eyebrow}><Sparkles size={14} /> Personalized opportunity map</span>
+          <h1 class={styles.gridTitle}>Your AI use case grid</h1>
+        </div>
+        <p class={styles.gridIntroCopy}>
+          Check every idea that feels useful. Generate a fresh set when you want a broader or different angle.
+        </p>
+        <div class={styles.gridIntroActions}>
+          <Show when={grid.state.generationHistory.length > 1}>
+            <nav class={styles.historyNav} aria-label="Idea set history">
+              <Tooltip
+                content="Previous idea set"
+                disabled={grid.state.generationIndex === 0}
+              >
+                <button
+                  type="button"
+                  class={styles.historyButton}
+                  aria-label="Show previous idea set"
+                  disabled={grid.state.generationIndex === 0}
+                  onClick={() => grid.showGeneration(grid.state.generationIndex - 1)}
+                >
+                  <ChevronLeft size={17} />
+                </button>
+              </Tooltip>
+              <span class={styles.historyCount} aria-live="polite">
+                Set {grid.state.generationIndex + 1} of {grid.state.generationHistory.length}
+              </span>
+              <Tooltip
+                content="Next idea set"
+                disabled={grid.state.generationIndex === grid.state.generationHistory.length - 1}
+              >
+                <button
+                  type="button"
+                  class={styles.historyButton}
+                  aria-label="Show next idea set"
+                  disabled={grid.state.generationIndex === grid.state.generationHistory.length - 1}
+                  onClick={() => grid.showGeneration(grid.state.generationIndex + 1)}
+                >
+                  <ChevronRight size={17} />
+                </button>
+              </Tooltip>
+            </nav>
           </Show>
           <Button
-            variant="solid"
-            disabled={grid.state.selectedIds.length === 0}
-            loading={grid.state.pending === "brief"}
-            loadingText="Building your brief…"
-            onClick={() => void grid.buildBrief()}
+            class={styles.generationAction}
+            onClick={() => setGenerationOpen(true)}
           >
-            Build my next-step brief <ArrowRight size={16} />
+            <Sparkles size={16} />
+            Generate more ideas…
           </Button>
-        </HStack>
+        </div>
       </div>
 
-      <Show when={grid.state.notice}>{(notice) => <div class={styles.notice} role="status">{notice()}</div>}</Show>
       <Show when={grid.state.error}>{(error) => <div class={styles.error} role="alert">{error()}</div>}</Show>
 
-      <div class={active() ? styles.workspace : styles.workspaceSingle}>
+      <div class={styles.workspaceSingle}>
         <section aria-label="AI use case matrix">
           <div class={styles.matrix}>
             <div class={styles.matrixHeader} aria-hidden="true" />
@@ -118,7 +123,7 @@ export function GridScreen() {
                   <For each={columnIds}>
                     {(columnId) => (
                       <div class={styles.cell} data-cell={cellKey(rowId, columnId)}>
-                        <CellContent rowId={rowId} columnId={columnId} useCases={groups().get(cellKey(rowId, columnId)) ?? []} />
+                        <CellContent useCases={groups().get(cellKey(rowId, columnId)) ?? []} />
                       </div>
                     )}
                   </For>
@@ -140,7 +145,7 @@ export function GridScreen() {
                           role="tab"
                           aria-selected={mobileColumns[rowId] === columnId}
                           class={styles.mobileTab}
-                          style={{ background: mobileColumns[rowId] === columnId ? "#dcebdc" : undefined, color: mobileColumns[rowId] === columnId ? "#075c3b" : undefined }}
+                          style={{ background: mobileColumns[rowId] === columnId ? "#daddff" : undefined, color: mobileColumns[rowId] === columnId ? "#151827" : undefined }}
                           onClick={() => setMobileColumns(rowId, columnId)}
                         >
                           {columnId === "faster" ? "Faster" : columnId === "decisions" ? "Decisions" : "New capability"}
@@ -151,8 +156,6 @@ export function GridScreen() {
                   </div>
                   <Box p="4" display="grid" gap="3" bg="brand.sage">
                     <CellContent
-                      rowId={rowId}
-                      columnId={mobileColumns[rowId]}
                       useCases={groups().get(cellKey(rowId, mobileColumns[rowId])) ?? []}
                     />
                   </Box>
@@ -161,21 +164,8 @@ export function GridScreen() {
             </For>
           </div>
         </section>
-
-        <Show when={active()}>
-          {(useCase) => (
-            <UseCaseDetail
-              useCase={useCase()}
-              selected={grid.isSelected(useCase().id)}
-              saved={grid.isSaved(useCase().id)}
-              onClose={grid.closeUseCase}
-              onToggleSelected={() => grid.toggleSelected(useCase().id)}
-              onToggleSaved={() => grid.toggleSaved(useCase().id)}
-              onDismiss={() => grid.dismiss(useCase().id)}
-            />
-          )}
-        </Show>
       </div>
+      <GenerationDialog open={generationOpen()} onOpenChange={setGenerationOpen} />
     </main>
   );
 }

@@ -6,7 +6,7 @@ export const button = defineRecipe({
   base: {
     alignItems: "center",
     appearance: "none",
-    borderRadius: "l2",
+    borderRadius: "6px",
     cursor: "pointer",
     display: "inline-flex",
     flexShrink: "0",
@@ -36,11 +36,13 @@ export const button = defineRecipe({
   variants: {
     variant: {
       solid: {
-        bg: "colorPalette.solid.bg",
-        color: "colorPalette.solid.fg",
+        bg: "brand.green",
+        color: "white",
+        boxShadow: "2px 2px 0 token(colors.brand.ink)",
         _hover: {
-          bg: "colorPalette.solid.bg.hover",
-          filter: "brightness(1.08)",
+          bg: "brand.greenHover",
+          transform: "translate(-1px, -1px)",
+          boxShadow: "3px 3px 0 token(colors.brand.ink)",
         },
       },
       surface: {

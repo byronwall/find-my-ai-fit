@@ -14,12 +14,12 @@ export default function HomeRoute() {
 
   return (
     <>
-      <Title>AI Use Case Grid — Find practical AI opportunities in your work</Title>
+      <Title>Find My AI Fit — Find practical AI opportunities in your work</Title>
       <Meta
         name="description"
-        content="Upload your LinkedIn profile and get a structured map of practical AI use cases tailored to your role and goals."
+        content="Upload your LinkedIn profile (or any other resume) and get a structured map of practical AI use cases tailored to your role and goals."
       />
-      <Meta property="og:title" content="AI Use Case Grid" />
+      <Meta property="og:title" content="Find My AI Fit" />
       <Meta property="og:description" content="Find the practical AI opportunities hiding in your work." />
       <Meta property="og:type" content="website" />
       <Meta property="og:image" content={socialImage} />

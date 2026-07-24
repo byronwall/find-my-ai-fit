@@ -2,6 +2,12 @@ import { action } from "@solidjs/router";
 import { openai } from "@ai-sdk/openai";
 import { generateText, Output } from "ai";
 import {
+  completeGenerationRecord,
+  failGenerationRecord,
+  startGenerationRecord,
+  type GenerationRecord,
+} from "~/lib/ai/generation-store";
+import {
   briefInputSchema,
   briefSchema,
   columnLabels,
@@ -17,8 +23,8 @@ import {
 } from "./domain";
 
 export type ActionResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string };
+  | { ok: true; data: T; generationId: string }
+  | { ok: false; error: string; generationId?: string };
 
 const modelId = () => process.env.OPENAI_MODEL ?? "gpt-5.6-terra";
 
@@ -31,23 +37,43 @@ const providerOptions = {
   },
 };
 
+const savedResponse = (result: {
+  experimental_output?: unknown;
+  usage?: unknown;
+  finishReason?: unknown;
+  warnings?: unknown;
+  providerMetadata?: unknown;
+  response?: unknown;
+}) => ({
+  output: result.experimental_output,
+  usage: result.usage,
+  finishReason: result.finishReason,
+  warnings: result.warnings,
+  providerMetadata: result.providerMetadata,
+  providerResponse: result.response,
+});
+
 const generationSystem = `You create practical, personalized AI use cases for working professionals.
 
 Success means:
-- extract only facts supported by the uploaded profile or explicit user input
-- label cautious inferences separately
+- preserve the supplied profile object exactly in the response
 - generate concrete work tasks, not generic AI capabilities
 - cover the 3 by 3 grid with two useful ideas per cell when the evidence supports it
+- prioritize the user's selected directions while preserving enough breadth to reveal adjacent opportunities
+- include two or three short multiple-choice questions that would help a later generation explore broader or meaningfully different territory
+- when prior ideas, answers, or feedback are supplied, generate a genuinely fresh replacement set rather than paraphrasing the earlier ideas
 - tie every idea to supplied context and give a small human-reviewed experiment
+- make every idea individual-startable even when it could later help a team or organization
+- avoid duplicate ideas that merely rename the same workflow
 - flag sensitive data, legal, employment, safety, financial, or privacy concerns on the relevant idea
 - never imply access to private employer systems
 - never recommend automating consequential employment decisions
 - return only the required structured output
 
 The rows are:
-- individual: ${rowLabels.individual}
-- team: ${rowLabels.team}
-- organization: ${rowLabels.organization}
+- prepare: ${rowLabels.prepare} — gather context, synthesize inputs, or get ready for work
+- deliver: ${rowLabels.deliver} — create, communicate, facilitate, or complete the work
+- improve: ${rowLabels.improve} — review outcomes, find patterns, and strengthen the next cycle
 
 The columns are:
 - faster: ${columnLabels.faster}
@@ -87,47 +113,82 @@ const safeError = (error: unknown) => {
 };
 
 export async function generateGrid(rawInput: unknown): Promise<ActionResult<GridOutput>> {
+    let generation: GenerationRecord | undefined;
+    let providerResult: Awaited<ReturnType<typeof generateText>> | undefined;
     try {
       const input = generationInputSchema.parse(rawInput);
       if (!process.env.OPENAI_API_KEY) {
         throw new Error("API key missing");
       }
 
+      generation = await startGenerationRecord({
+        kind: "use-case-grid",
+        model: modelId(),
+        request: {
+          system: generationSystem,
+          input,
+          providerOptions,
+          maxRetries: 2,
+        },
+      });
       const result = await generateText({
         model: openai.responses(modelId()),
         system: generationSystem,
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "file",
-                data: input.base64,
-                mediaType: input.mediaType,
-                filename: input.filename,
-              },
-              {
-                type: "text",
-                text: `Create my AI use case grid.\n\nDeclared goal: ${input.intent.goal ?? "Explore relevant opportunities"}\nTime horizon: ${input.intent.timeHorizon ?? "Not specified"}\nAdditional direction: ${input.intent.notes ?? "None"}`,
-              },
-            ],
-          },
-        ],
+        prompt: `Create an AI use case grid.
+
+Profile summary: ${input.profile.summary}
+Roles: ${input.profile.roles.join(", ") || "Not specified"}
+Industries: ${input.profile.industries.join(", ") || "Not specified"}
+Skills: ${input.profile.skills.join(", ") || "Not specified"}
+Selected directions:
+${input.directions
+  .map(
+    (direction) =>
+      `- ${direction.title}: ${direction.description} Evidence: ${direction.fitReason}`,
+  )
+  .join("\n")}
+Declared goal: ${input.intent.goal ?? "Explore relevant opportunities"}
+Time horizon: ${input.intent.timeHorizon ?? "Not specified"}
+Additional direction: ${input.intent.notes ?? "None"}
+Previous idea titles to avoid: ${input.previousTitles?.join(", ") || "None"}
+Answers about the next direction:
+${Object.entries(input.refinementAnswers ?? {})
+  .map(([questionId, answer]) => `- ${questionId}: ${answer}`)
+  .join("\n") || "None"}
+Open feedback from the user: ${input.feedback ?? "None"}`,
         experimental_output: Output.object({ schema: gridOutputSchema }),
         providerOptions,
         maxRetries: 2,
       });
+      providerResult = result;
 
       const parsed = gridOutputSchema.parse(result.experimental_output);
+      const data = {
+        profile: input.profile,
+        useCases: normalizeIds(parsed.useCases),
+        refinementQuestions: parsed.refinementQuestions,
+      };
+      await completeGenerationRecord(generation, {
+        ...savedResponse(result),
+        normalizedOutput: data,
+      });
       return {
         ok: true,
-        data: { ...parsed, useCases: normalizeIds(parsed.useCases) },
+        data,
+        generationId: generation.id,
       };
     } catch (error) {
+      if (generation) {
+        await failGenerationRecord(
+          generation,
+          error,
+          providerResult ? savedResponse(providerResult) : undefined,
+        );
+      }
       console.error("use-case-grid:generation-failed", {
         name: error instanceof Error ? error.name : "UnknownError",
       });
-      return { ok: false, error: safeError(error) };
+      return { ok: false, error: safeError(error), generationId: generation?.id };
     }
 }
 
@@ -149,26 +210,44 @@ Success means:
 Use null for sensitivityNote when no special warning is needed.`;
 
 export async function focusUseCaseCell(rawInput: unknown): Promise<ActionResult<FocusedOutput>> {
+    let generation: GenerationRecord | undefined;
+    let providerResult: Awaited<ReturnType<typeof generateText>> | undefined;
     try {
       const input = focusInputSchema.parse(rawInput);
+      const prompt = `Profile summary: ${input.profile.summary}\nRoles: ${input.profile.roles.join(", ")}\nGoal: ${input.intent.goal ?? "Explore"}\nFocus row: ${input.rowId} (${rowLabels[input.rowId]})\nFocus column: ${input.columnId} (${columnLabels[input.columnId]})\nAlready selected: ${input.selectedTitles.join(", ") || "None"}\nUser direction: ${input.direction ?? "None"}`;
+      generation = await startGenerationRecord({
+        kind: "focused-cell",
+        model: modelId(),
+        request: { system: focusSystem, prompt, input, providerOptions, maxRetries: 2 },
+      });
       const result = await generateText({
         model: openai.responses(modelId()),
         system: focusSystem,
-        prompt: `Profile summary: ${input.profile.summary}\nRoles: ${input.profile.roles.join(", ")}\nGoal: ${input.intent.goal ?? "Explore"}\nFocus row: ${input.rowId} (${rowLabels[input.rowId]})\nFocus column: ${input.columnId} (${columnLabels[input.columnId]})\nAlready selected: ${input.selectedTitles.join(", ") || "None"}\nUser direction: ${input.direction ?? "None"}`,
+        prompt,
         experimental_output: Output.object({ schema: focusedOutputSchema }),
         providerOptions,
         maxRetries: 2,
       });
+      providerResult = result;
       const parsed = focusedOutputSchema.parse(result.experimental_output);
+      await completeGenerationRecord(generation, savedResponse(result));
       return {
         ok: true,
         data: { ...parsed, useCases: normalizeIds(parsed.useCases) },
+        generationId: generation.id,
       };
     } catch (error) {
+      if (generation) {
+        await failGenerationRecord(
+          generation,
+          error,
+          providerResult ? savedResponse(providerResult) : undefined,
+        );
+      }
       console.error("use-case-grid:focus-failed", {
         name: error instanceof Error ? error.name : "UnknownError",
       });
-      return { ok: false, error: safeError(error) };
+      return { ok: false, error: safeError(error), generationId: generation?.id };
     }
 }
 
@@ -180,7 +259,9 @@ export const focusCellAction = action(async (rawInput) => {
 const briefSystem = `Create a concise execution handoff from selected AI use cases.
 
 Success means:
-- synthesize the shared user intent without claiming certainty about the person
+- synthesize the selections into one simple, coherent plan without claiming certainty about the person
+- write the theme as a useful plan of action, not a category label, personality reading, or restatement of the selected titles
+- explain how the selected tasks work together, what outcome they build toward, and the sensible sequence in two to four plain-language sentences
 - recommend one selected idea and explain why it is the smallest sensible start
 - propose a bounded, human-reviewed experiment
 - produce a ready-to-copy prompt containing context, constraints, required output, and stop rules
@@ -188,6 +269,8 @@ Success means:
 - return only the required structured output.`;
 
 export async function buildUseCaseBrief(rawInput: unknown): Promise<ActionResult<Brief>> {
+    let generation: GenerationRecord | undefined;
+    let providerResult: Awaited<ReturnType<typeof generateText>> | undefined;
     try {
       const input = briefInputSchema.parse(rawInput);
       const selectedSummary = input.selected
@@ -196,30 +279,50 @@ export async function buildUseCaseBrief(rawInput: unknown): Promise<ActionResult
             `${item.id}: ${item.title} — ${item.summary}; first step: ${item.firstStep}; safety: ${item.sensitivityNote ?? "none"}`,
         )
         .join("\n");
+      const prompt = `Profile: ${input.profile.summary}\nGoal: ${input.intent.goal ?? "Explore"}\nSelected use cases:\n${selectedSummary}`;
+      generation = await startGenerationRecord({
+        kind: "execution-brief",
+        model: modelId(),
+        request: { system: briefSystem, prompt, input, providerOptions, maxRetries: 2 },
+      });
       const result = await generateText({
         model: openai.responses(modelId()),
         system: briefSystem,
-        prompt: `Profile: ${input.profile.summary}\nGoal: ${input.intent.goal ?? "Explore"}\nSelected use cases:\n${selectedSummary}`,
+        prompt,
         experimental_output: Output.object({ schema: briefSchema }),
         providerOptions,
         maxRetries: 2,
       });
+      providerResult = result;
       const brief = briefSchema.parse(result.experimental_output);
       const allowedIds = new Set(input.selected.map((item) => item.id));
+      const data = {
+        ...brief,
+        recommendedUseCaseId: allowedIds.has(brief.recommendedUseCaseId)
+          ? brief.recommendedUseCaseId
+          : input.selected[0].id,
+      };
+      await completeGenerationRecord(generation, {
+        ...savedResponse(result),
+        normalizedOutput: data,
+      });
       return {
         ok: true,
-        data: {
-          ...brief,
-          recommendedUseCaseId: allowedIds.has(brief.recommendedUseCaseId)
-            ? brief.recommendedUseCaseId
-            : input.selected[0].id,
-        },
+        data,
+        generationId: generation.id,
       };
     } catch (error) {
+      if (generation) {
+        await failGenerationRecord(
+          generation,
+          error,
+          providerResult ? savedResponse(providerResult) : undefined,
+        );
+      }
       console.error("use-case-grid:brief-failed", {
         name: error instanceof Error ? error.name : "UnknownError",
       });
-      return { ok: false, error: safeError(error) };
+      return { ok: false, error: safeError(error), generationId: generation?.id };
     }
 }
 

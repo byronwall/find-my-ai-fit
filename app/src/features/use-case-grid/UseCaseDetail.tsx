@@ -23,7 +23,7 @@ export function UseCaseDetail(props: UseCaseDetailProps) {
           <Text color="brand.green" textStyle="sm" fontWeight="semibold">
             {feasibilityLabels[props.useCase.feasibility]}
           </Text>
-          <Box as="h2" fontFamily="Georgia, serif" fontSize="2xl" fontWeight="bold">
+          <Box as="h2" fontSize="2xl" fontWeight="850" letterSpacing="tight" lineHeight="1.1">
             {props.useCase.title}
           </Box>
         </VStack>
@@ -34,11 +34,11 @@ export function UseCaseDetail(props: UseCaseDetailProps) {
 
       <div class={styles.inspectorBody}>
         <section class={styles.detailSection}>
-          <Text fontFamily="Georgia, serif" fontSize="lg" fontWeight="bold">The work problem</Text>
+          <Text fontSize="lg" fontWeight="800" letterSpacing="tight">The work problem</Text>
           <Text color="brand.muted">{props.useCase.problem}</Text>
         </section>
         <section class={styles.detailSection}>
-          <Text fontFamily="Georgia, serif" fontSize="lg" fontWeight="bold">Why it may fit</Text>
+          <Text fontSize="lg" fontWeight="800" letterSpacing="tight">Why it may fit</Text>
           <Text color="brand.muted">{props.useCase.fitReason}</Text>
           <VStack alignItems="stretch" gap="1" mt="2">
             <For each={props.useCase.provenance}>
@@ -47,11 +47,11 @@ export function UseCaseDetail(props: UseCaseDetailProps) {
           </VStack>
         </section>
         <section class={styles.detailSection}>
-          <Text fontFamily="Georgia, serif" fontSize="lg" fontWeight="bold">Expected benefit</Text>
+          <Text fontSize="lg" fontWeight="800" letterSpacing="tight">Expected benefit</Text>
           <Text color="brand.muted">{props.useCase.expectedBenefit}</Text>
         </section>
         <section class={styles.detailSection}>
-          <Text fontFamily="Georgia, serif" fontSize="lg" fontWeight="bold">Smallest experiment</Text>
+          <Text fontSize="lg" fontWeight="800" letterSpacing="tight">Smallest experiment</Text>
           <Text color="brand.muted">{props.useCase.firstStep}</Text>
         </section>
 

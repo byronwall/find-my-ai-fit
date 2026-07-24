@@ -62,18 +62,19 @@ export default defineConfig({
       semanticTokens: {
         colors: {
           brand: {
-            canvas: { value: "#fbfaf6" },
-            panel: { value: "#fffefa" },
-            ink: { value: "#172019" },
-            muted: { value: "#5d685f" },
-            green: { value: "#075c3b" },
-            greenHover: { value: "#064c32" },
-            sage: { value: "#eef5ee" },
-            sageStrong: { value: "#dcebdc" },
-            teal: { value: "#d9eff0" },
-            amber: { value: "#fff1d8" },
-            amberInk: { value: "#9a4f00" },
-            border: { value: "#dcdad0" },
+            canvas: { value: "#f3f5fb" },
+            panel: { value: "#ffffff" },
+            ink: { value: "#151827" },
+            muted: { value: "#596174" },
+            green: { value: "#5757d9" },
+            greenHover: { value: "#4444bd" },
+            sage: { value: "#eef0ff" },
+            sageStrong: { value: "#daddff" },
+            teal: { value: "#d9f7ef" },
+            amber: { value: "#f5ff8f" },
+            amberInk: { value: "#4d5600" },
+            signal: { value: "#eaff43" },
+            border: { value: "#cbd1e1" },
           },
           bg: {
             default: {

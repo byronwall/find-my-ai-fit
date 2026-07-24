@@ -1,0 +1,54 @@
+# Compose reads substitutions from a repo-root .env by default. To reuse the
+# app's local env file, run: docker compose --env-file app/.env up --build
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        BASE_PATH: ${BASE_PATH:-/}
+    image: solid-start-panda-park-ui-app
+    restart: unless-stopped
+    environment:
+      # Container/runtime settings.
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      BASE_PATH: ${BASE_PATH:-/}
+      APP_DATA_DIR: /app/data
+
+      # Public URL and product identity. Coolify supplies SERVICE_URL_APP.
+      SERVICE_URL_APP: ${SERVICE_URL_APP:-}
+      APP_BASE_URL: ${APP_BASE_URL:-}
+      PRODUCT_NAME: ${PRODUCT_NAME:-Find My AI Fit}
+
+      # Required for the app's profile and use-case generation.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in .env before starting the app}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5-mini}
+      OPENAI_HEAVY_MODEL: ${OPENAI_HEAVY_MODEL:-gpt-5.4}
+
+      # Optional email delivery. RESEND_API_KEY and EMAIL_FROM are required
+      # only when EMAIL_DELIVERY=resend; console mode needs neither.
+      EMAIL_DELIVERY: ${EMAIL_DELIVERY:-console}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+
+      # Required to identify the file-backed admin account.
+      SUPER_USER_EMAIL: ${SUPER_USER_EMAIL:?Set SUPER_USER_EMAIL in .env before starting the app}
+
+      # Optional billing. Set all three Stripe values to enable checkout and
+      # webhook fulfillment; credit-pack values control the displayed offer.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_CREDIT_PACK: ${STRIPE_PRICE_CREDIT_PACK:-}
+      CREDIT_PACK_CREDITS: ${CREDIT_PACK_CREDITS:-10}
+      CREDIT_PACK_AMOUNT_CENTS: ${CREDIT_PACK_AMOUNT_CENTS:-1000}
+      CREDIT_PACK_CURRENCY: ${CREDIT_PACK_CURRENCY:-usd}
+    ports:
+      - "${APP_PORT:-}:3000"
+    volumes:
+      - starter-data:/app/data
+
+volumes:
+  starter-data:

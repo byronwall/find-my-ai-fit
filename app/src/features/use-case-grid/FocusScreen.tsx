@@ -7,12 +7,10 @@ import { useUseCaseGrid } from "./context";
 import { columnLabels, rowLabels } from "./domain";
 import { styles } from "./styles";
 import { UseCaseCard } from "./UseCaseCard";
-import { UseCaseDetail } from "./UseCaseDetail";
 
 export function FocusScreen() {
   const grid = useUseCaseGrid();
   const activeCell = () => grid.state.activeCell;
-  const active = () => grid.activeUseCase();
 
   return (
     <main class={styles.page}>
@@ -25,7 +23,7 @@ export function FocusScreen() {
       </div>
 
       <div class={styles.focusHeader}>
-        <Box as="h1" fontFamily="Georgia, serif" fontSize={{ base: "4xl", md: "5xl" }} lineHeight="1.05">
+        <Box as="h1" fontSize={{ base: "4xl", md: "5xl" }} fontWeight="850" letterSpacing="-0.035em" lineHeight="1.02">
           {activeCell() ? columnLabels[activeCell()!.columnId] : "Focused ideas"}
         </Box>
         <Text color="brand.muted" fontSize="lg" maxW="4xl">
@@ -37,7 +35,7 @@ export function FocusScreen() {
         {(focus) => (
           <>
             <Box class={styles.panel} mb="5">
-              <Text fontFamily="Georgia, serif" fontSize="xl" fontWeight="bold" mb="3">
+              <Text fontSize="xl" fontWeight="800" letterSpacing="tight" mb="3">
                 {focus().refinementQuestion}
               </Text>
               <div class={styles.choices} role="group" aria-label="Refinement direction">
@@ -59,19 +57,15 @@ export function FocusScreen() {
             <Show when={grid.state.notice}>{(notice) => <div class={styles.notice} role="status">{notice()}</div>}</Show>
             <Show when={grid.state.error}>{(error) => <div class={styles.error} role="alert">{error()}</div>}</Show>
 
-            <div class={active() ? styles.workspace : styles.workspaceSingle}>
+            <div class={styles.workspaceSingle}>
               <section>
                 <div class={styles.focusGrid}>
-                  <For each={focus().useCases.filter((item) => !grid.state.dismissedIds.includes(item.id))}>
+                  <For each={focus().useCases}>
                     {(useCase) => (
                       <UseCaseCard
                         useCase={useCase}
                         selected={grid.isSelected(useCase.id)}
-                        saved={grid.isSaved(useCase.id)}
-                        onOpen={() => grid.openUseCase(useCase.id)}
                         onToggleSelected={() => grid.toggleSelected(useCase.id)}
-                        onToggleSaved={() => grid.toggleSaved(useCase.id)}
-                        onDismiss={() => grid.dismiss(useCase.id)}
                       />
                     )}
                   </For>
@@ -99,20 +93,6 @@ export function FocusScreen() {
                   </HStack>
                 </HStack>
               </section>
-
-              <Show when={active()}>
-                {(useCase) => (
-                  <UseCaseDetail
-                    useCase={useCase()}
-                    selected={grid.isSelected(useCase().id)}
-                    saved={grid.isSaved(useCase().id)}
-                    onClose={grid.closeUseCase}
-                    onToggleSelected={() => grid.toggleSelected(useCase().id)}
-                    onToggleSaved={() => grid.toggleSaved(useCase().id)}
-                    onDismiss={() => grid.dismiss(useCase().id)}
-                  />
-                )}
-              </Show>
             </div>
           </>
         )}
