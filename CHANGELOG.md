@@ -4,16 +4,22 @@ This file records user-visible changes, important development workflow changes, 
 
 ## Unreleased
 
-- Replaced per-cell narrower-idea generation with one polished “Generate more ideas…” flow: each generated grid now includes two or three multiple-choice direction questions, an open feedback field guides a fresh replacement set, history arrows revisit earlier outputs, and selections from every set remain available in the final brief.
+- Replaced the stale “AI Use Case Grid” OpenGraph card with a “Find My AI Fit” social preview that uses the current strategy-studio brand, demonstrates the 3×3 opportunity map, and includes a clear next-step action. Completed the corresponding OpenGraph, Twitter, site-name, canonical URL, image-dimension, and alt-text metadata.
+
+- Replaced per-cell narrower-idea generation with one polished “Generate more ideas…” flow: each generated grid now includes two or three multiple-choice direction questions, an open feedback field guides a fresh replacement set, history arrows revisit earlier outputs, and selections from every set remain available in the final brief. Moved the generation action into the sticky top navigation as a secondary companion to “Build brief.”
 
 - Made the complete top-nav brand mark and name a keyboard-accessible home link that returns every workspace screen to `/`.
 
 - Removed the redundant top-nav overflow menu and its Start over action.
 
-- Reworked the final AI use case brief into a plan-first workspace with a task detail picker, per-task recommended starting points, removable selections with refreshed synthesis, and a readable prompt preview that preserves raw prompt copying.
-  - Polished the brief with a stronger recommended-action anchor, high-contrast active task state, readable labeled prompt paragraphs, and clearer updating feedback.
+- Reworked the final AI use case brief into a plan-first workspace with a task detail picker, per-task recommended starting points, and a readable prompt preview that preserves raw prompt copying.
+  - Polished the brief with a stronger recommended-action anchor, high-contrast active task state, and readable labeled prompt paragraphs.
+  - Put the concrete recommended task first, flattened the plan into the page, and removed the nested dark callout so the opening reads as one practical sequence.
+  - Added a dedicated generated prompt for every selected task, moved each prompt into its task detail, and kept the desktop task picker visible while the detail scrolls.
 
 - Simplified the opportunity grid into a checklist: each idea card now toggles “Interesting” directly, with save, dismiss, and detail actions removed from the grid workflow.
+  - Hid the unchecked “Interesting” affordance until hover or keyboard focus while keeping selected cards visibly marked.
+  - Moved each feasibility pill to the card’s top-right edge and consolidated the selection marker into the same header row to reduce card height.
 ### Added
 
 - Durable product context for design and implementation work, including the product's audience, standalone value, portfolio role, lead-generation purpose, privacy boundaries, and intentionally flexible name and visual identity.
@@ -27,8 +33,9 @@ This file records user-visible changes, important development workflow changes, 
 
 ### Changed
 
+- Improved the next-set direction dialog’s readability by reserving heavy type for its title and using calmer prompt and choice-label weights.
 - Expanded the landing-page intake copy to welcome any resume PDF, not only LinkedIn profile exports.
-- Documented and aligned the complete Docker Compose environment contract for OpenAI, deployment URLs, admin access, optional Resend email, and optional Stripe billing.
+- Documented and aligned the complete Docker Compose environment contract for OpenAI, deployment URLs, admin access, optional Resend email, and optional Stripe billing, using `gpt-5.6-terra` as the single default model.
 - Adopted the Find My AI Fit identity in the app header and page metadata, with the selected ink-and-periwinkle fit mark and matching SVG favicon.
 - Split personalized generation into a quick profile-and-direction pass followed by an opt-in full grid, with a dedicated progress state and a user-selected direction guiding the heavier generation.
 - Added a 100-character recommended-detail meter to the optional direction field while continuing to accept longer, valid context up to the existing 800-character limit.

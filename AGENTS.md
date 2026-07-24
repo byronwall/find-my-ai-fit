@@ -18,7 +18,7 @@ Repository-level guidance for contributors and coding agents.
 - Treat its lint phase as an important quality gate. It includes TS complexity guardrails: 400 effective LOC per source file, cyclomatic complexity 15, and nesting depth 4. Follow these warnings when adding or substantially touching code; prefer splitting focused modules/functions over suppressing the rule.
 - Before substantially extending a source file above roughly 325–350 effective lines, identify a responsibility boundary and extract first. Do not wait for the 400-line lint warning.
 - Keep Playwright usability evaluation reports, run logs, screenshots, and similar generated artifacts under repo-root `tmp/evals/`; it is git-ignored so eval images and reports do not get committed.
-- AI SDK/OpenAI setup lives in `app/.env.example`. Provide `OPENAI_API_KEY`; prefer `OPENAI_MODEL=gpt-5-mini` for default work and `OPENAI_HEAVY_MODEL=gpt-5.4` for heavier tasks.
+- AI SDK/OpenAI setup lives in `app/.env.example`. Provide `OPENAI_API_KEY`; use `OPENAI_MODEL=gpt-5.6-terra` by default.
 - Prefer SolidStart data APIs (`query` + `createResource` for reads, server actions for writes).
 - For `createResource`, prefer reading `resource.latest` by default to avoid transient empty/loading blips during revalidation.
 - Use `resource()` directly only when you intentionally want a pending/loading transition in the UI.
@@ -91,7 +91,7 @@ Run from `app/` (or use `pnpm -C app <cmd>`):
 - The app package includes the Vercel AI SDK deps: `ai`, `@ai-sdk/openai`, and `zod`.
 - Keep provider calls on the server: server actions, server modules under `app/src/lib`, or other server-only entrypoints. Do not expose `OPENAI_API_KEY` to client code.
 - Use the OpenAI provider from `@ai-sdk/openai` and read the API key from `process.env.OPENAI_API_KEY`.
-- Treat `gpt-5-mini` as the default low-latency/cost model and `gpt-5.4` as the heavier reasoning/escalation model unless the user asks for something else.
+- Treat `gpt-5.6-terra` as the default model unless the user asks for something else.
 - Prefer a thin local wrapper for model selection so routes/components do not hard-code model ids all over the app.
 
 ## AI SDK Structured Data
@@ -123,7 +123,7 @@ const recipeSchema = z.object({
 });
 
 const { output } = await generateText({
-  model: openai(process.env.OPENAI_HEAVY_MODEL ?? "gpt-5.4"),
+  model: openai(process.env.OPENAI_MODEL ?? "gpt-5.6-terra"),
   output: Output.object({ schema: recipeSchema }),
   prompt: "Generate a weeknight pasta recipe.",
 });

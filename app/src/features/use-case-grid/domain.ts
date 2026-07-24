@@ -99,7 +99,12 @@ export const briefSchema = z.object({
   recommendedUseCaseId: z.string().min(1),
   recommendationReason: z.string().min(20).max(600),
   experiment: z.string().min(20).max(700),
-  prompt: z.string().min(80).max(4000),
+  prompts: z.array(
+    z.object({
+      useCaseId: z.string().min(1),
+      prompt: z.string().min(80).max(4000),
+    }),
+  ).min(1).max(60),
 });
 
 export const profileDirectionsInputSchema = z.object({
@@ -161,6 +166,12 @@ export const groupUseCases = (useCases: UseCase[]) => {
   return groups;
 };
 
+export const createUseCasePrompt = (
+  profile: Profile,
+  useCase: UseCase,
+) =>
+  `Help me design a small, human-reviewed experiment for this AI use case: ${useCase.title}.\n\nContext: ${profile.summary}\n\nThe use case: ${useCase.summary}\n\nExpected benefit: ${useCase.expectedBenefit}\n\nStart with this experiment: ${useCase.firstStep}\n\nFirst ask for any policy, privacy, data, or approval constraints that would materially change the plan. Then produce a short workflow, required inputs, success measures, failure conditions, and a review checklist. Do not invent organizational rules or request sensitive information.`;
+
 export const createLocalBrief = (
   profile: Profile,
   selected: UseCase[],
@@ -175,6 +186,9 @@ export const createLocalBrief = (
     recommendedUseCaseId: recommended.id,
     recommendationReason: `${recommended.title} is a strong starting point because its first experiment is bounded, reviewable, and produces a visible result without requiring a large system build.`,
     experiment: recommended.firstStep,
-    prompt: `Help me design a small, human-reviewed experiment for this AI use case: ${recommended.title}.\n\nContext: ${profile.summary}\n\nThe use case: ${recommended.summary}\n\nExpected benefit: ${recommended.expectedBenefit}\n\nStart with this experiment: ${recommended.firstStep}\n\nFirst ask for any policy, privacy, data, or approval constraints that would materially change the plan. Then produce a short workflow, required inputs, success measures, failure conditions, and a review checklist. Do not invent organizational rules or request sensitive information.`,
+    prompts: selected.map((item) => ({
+      useCaseId: item.id,
+      prompt: createUseCasePrompt(profile, item),
+    })),
   };
 };

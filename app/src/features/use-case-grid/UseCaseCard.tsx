@@ -28,17 +28,25 @@ export function UseCaseCard(props: UseCaseCardProps) {
       data-use-case-id={local.useCase.id}
       onClick={() => local.onToggleSelected()}
     >
-      <span class={styles.cardTitle}>{local.useCase.title}</span>
-      <span class={styles.cardSummary}>{local.useCase.summary}</span>
-      <span class={styles.cardFooter}>
-        <span class={cx(styles.chip, feasibilityClass[local.useCase.feasibility])}>
-          {feasibilityLabels[local.useCase.feasibility]}
-        </span>
-        <span class={styles.cardSelection}>
-          {local.selected ? <Check size={15} aria-hidden="true" /> : <Circle size={15} aria-hidden="true" />}
-          Interesting
+      <span class={styles.cardHeader}>
+        <span class={styles.cardTitle}>{local.useCase.title}</span>
+        <span class={styles.cardHeaderActions}>
+          <span
+            class={cx(
+              styles.cardSelection,
+              local.selected && styles.cardSelectionSelected,
+            )}
+            data-card-selection
+            aria-hidden="true"
+          >
+            {local.selected ? <Check size={15} /> : <Circle size={15} />}
+          </span>
+          <span class={cx(styles.chip, feasibilityClass[local.useCase.feasibility])}>
+            {feasibilityLabels[local.useCase.feasibility]}
+          </span>
         </span>
       </span>
+      <span class={styles.cardSummary}>{local.useCase.summary}</span>
     </button>
   );
 }

@@ -81,8 +81,11 @@ describe("AI use case grid domain", () => {
     const brief = createLocalBrief(exampleGrid.profile, selected);
 
     expect(selected.map((item) => item.id)).toContain(brief.recommendedUseCaseId);
-    expect(brief.prompt).toContain(selected[0].title);
-    expect(brief.prompt).toContain("human-reviewed");
+    expect(brief.prompts).toHaveLength(selected.length);
+    expect(brief.prompts.map((item) => item.useCaseId)).toEqual(selected.map((item) => item.id));
+    expect(brief.prompts[0].prompt).toContain(selected[0].title);
+    expect(brief.prompts[1].prompt).toContain(selected[1].title);
+    expect(brief.prompts.every((item) => item.prompt.includes("human-reviewed"))).toBe(true);
     expect(brief.experiment).toBe(selected[0].firstStep);
     expect(brief.theme).toContain(`Start with ${selected[0].title}`);
     expect(brief.theme).toContain(selected[1].title);

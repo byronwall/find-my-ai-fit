@@ -1,17 +1,19 @@
-import { ChevronRight, LockKeyhole, Trash2 } from "lucide-solid";
+import { Check, ChevronRight, Clipboard, LockKeyhole } from "lucide-solid";
 import { For, Show } from "solid-js";
-import { Box, VStack } from "styled-system/jsx";
+import { Box, HStack, VStack } from "styled-system/jsx";
 import { Button, Text } from "~/components/ui";
+import { BriefPromptPreview } from "./BriefPromptPreview";
 import { feasibilityLabels, type UseCase } from "./domain";
 import { styles } from "./styles";
 
 type BriefTaskWorkbenchProps = {
   items: UseCase[];
   active: UseCase;
+  prompt: string;
+  copied: boolean;
   recommendedId?: string;
-  updating: boolean;
   onSelect: (id: string) => void;
-  onRemove: () => void;
+  onCopyPrompt: () => void;
 };
 
 export function BriefTaskWorkbench(props: BriefTaskWorkbenchProps) {
@@ -85,18 +87,23 @@ export function BriefTaskWorkbench(props: BriefTaskWorkbenchProps) {
             )}
           </Show>
 
-          <Button
-            variant="plain"
-            disabled={props.items.length <= 1 || props.updating}
-            onClick={props.onRemove}
-          >
-            <Trash2 size={16} />
-            {props.updating
-              ? "Updating plan…"
-              : props.items.length <= 1
-                ? "Keep at least one task"
-                : "Remove from this plan"}
-          </Button>
+          <section class={styles.itemPrompt} aria-labelledby="item-prompt-heading">
+            <HStack justifyContent="space-between" alignItems="center" gap="3" flexWrap="wrap">
+              <div>
+                <Text id="item-prompt-heading" fontSize="xl" fontWeight="800">
+                  Prompt for this task
+                </Text>
+                <Text color="brand.muted" mt="1">Copy it into the AI tool you already use.</Text>
+              </div>
+              <Button variant="outline" onClick={props.onCopyPrompt}>
+                <Show when={props.copied} fallback={<><Clipboard size={16} /> Copy prompt</>}>
+                  <Check size={16} /> Copied
+                </Show>
+              </Button>
+            </HStack>
+            <BriefPromptPreview text={props.prompt} />
+          </section>
+
         </article>
       </div>
     </section>

@@ -1,10 +1,9 @@
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-solid";
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import { createStore } from "solid-js/store";
 import { Box } from "styled-system/jsx";
-import { Button, Tooltip } from "~/components/ui";
+import { Tooltip } from "~/components/ui";
 import { useUseCaseGrid } from "./context";
-import { GenerationDialog } from "./GenerationDialog";
 import {
   cellKey,
   columnIds,
@@ -44,7 +43,6 @@ function CellContent(props: CellProps) {
 
 export function GridScreen() {
   const grid = useUseCaseGrid();
-  const [generationOpen, setGenerationOpen] = createSignal(false);
   const groups = createMemo(() => groupUseCases(grid.state.useCases));
   const [mobileColumns, setMobileColumns] = createStore<Record<RowId, ColumnId>>({
     prepare: "faster",
@@ -61,8 +59,8 @@ export function GridScreen() {
         <p class={styles.gridIntroCopy}>
           Check every idea that feels useful. Generate a fresh set when you want a broader or different angle.
         </p>
-        <div class={styles.gridIntroActions}>
-          <Show when={grid.state.generationHistory.length > 1}>
+        <Show when={grid.state.generationHistory.length > 1}>
+          <div class={styles.gridIntroActions}>
             <nav class={styles.historyNav} aria-label="Idea set history">
               <Tooltip
                 content="Previous idea set"
@@ -96,15 +94,8 @@ export function GridScreen() {
                 </button>
               </Tooltip>
             </nav>
-          </Show>
-          <Button
-            class={styles.generationAction}
-            onClick={() => setGenerationOpen(true)}
-          >
-            <Sparkles size={16} />
-            Generate more ideas…
-          </Button>
-        </div>
+          </div>
+        </Show>
       </div>
 
       <Show when={grid.state.error}>{(error) => <div class={styles.error} role="alert">{error()}</div>}</Show>
@@ -165,7 +156,6 @@ export function GridScreen() {
           </div>
         </section>
       </div>
-      <GenerationDialog open={generationOpen()} onOpenChange={setGenerationOpen} />
     </main>
   );
 }

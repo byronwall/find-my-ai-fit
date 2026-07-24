@@ -15,6 +15,11 @@ import {
   type UseCase,
 } from "./domain";
 import { exampleDirections, exampleFocus, exampleGrid, exampleIntent } from "./example-data";
+import {
+  appendUniqueGeneration,
+  collectSelectedUseCases,
+  generationTitles,
+} from "./generation-history";
 import { initialState, type GridContextValue, type GridState, type Screen } from "./context-types";
 
 const GridContext = createContext<GridContextValue>();
@@ -166,15 +171,12 @@ export function UseCaseGridProvider(props: ParentProps) {
     feedback,
   }) => {
     if (!state.profile || state.directions.length === 0) return false;
-    const previousTitles = state.generationHistory.flatMap((generation) =>
-      generation.useCases.map((item) => item.title),
-    );
     setState({ pending: "regenerate", error: null, notice: null });
     const result = await generateGrid({
       profile: state.profile,
       intent: state.intent,
       directions: state.directions,
-      previousTitles,
+      previousTitles: generationTitles(state.generationHistory),
       refinementAnswers,
       feedback: feedback.trim() || undefined,
     });
@@ -184,28 +186,8 @@ export function UseCaseGridProvider(props: ParentProps) {
       return false;
     }
 
-    const knownIds = new Set(
-      state.generationHistory.flatMap((generation) =>
-        generation.useCases.map((item) => item.id),
-      ),
-    );
-    const round = state.generationHistory.length + 1;
-    const uniqueUseCases = result.data.useCases.map((item, index) => {
-      if (!knownIds.has(item.id)) {
-        knownIds.add(item.id);
-        return item;
-      }
-      let id = `${item.id}-round-${round}`;
-      let suffix = index + 2;
-      while (knownIds.has(id)) {
-        id = `${item.id}-round-${round}-${suffix}`;
-        suffix += 1;
-      }
-      knownIds.add(id);
-      return { ...item, id };
-    });
-    const nextGeneration = { ...result.data, useCases: uniqueUseCases };
-    const nextHistory = [...state.generationHistory, nextGeneration];
+    const { generation: nextGeneration, history: nextHistory } =
+      appendUniqueGeneration(state.generationHistory, result.data);
     setState({
       pending: null,
       useCases: nextGeneration.useCases,
@@ -357,15 +339,11 @@ export function UseCaseGridProvider(props: ParentProps) {
   };
 
   function selectedUseCases() {
-    const combined = [
-      ...state.generationHistory.flatMap((generation) => generation.useCases),
-      ...(state.focus?.useCases ?? []),
-    ];
-    const byId = new Map(combined.map((item) => [item.id, item]));
-    return state.selectedIds.flatMap((id) => {
-      const item = byId.get(id);
-      return item ? [item] : [];
-    });
+    return collectSelectedUseCases(
+      state.generationHistory,
+      state.focus?.useCases ?? [],
+      state.selectedIds,
+    );
   }
 
   const buildBrief = async () => {

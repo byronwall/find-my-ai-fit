@@ -1,5 +1,5 @@
 import { Sparkles } from "lucide-solid";
-import { For } from "solid-js";
+import { For, Show } from "solid-js";
 import { createStore } from "solid-js/store";
 import { Button, SimpleDialog, Textarea } from "~/components/ui";
 import { useUseCaseGrid } from "./context";
@@ -66,6 +66,9 @@ export function GenerationDialog(props: GenerationDialogProps) {
       }
     >
       <div class={styles.generationForm}>
+        <Show when={grid.state.error}>
+          {(error) => <div class={styles.generationDialogError} role="alert">{error()}</div>}
+        </Show>
         <div class={styles.questionList}>
           <For each={questions()}>
             {(question, index) => (

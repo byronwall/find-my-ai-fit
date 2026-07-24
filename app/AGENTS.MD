@@ -10,7 +10,7 @@
 - Run `pnpm verify` as the default final gate for code changes. It runs type checks, tests, and lint without the slower production build.
 - If pnpm fails before the repository script starts, run `node scripts/verify.mjs` and report the launcher failure separately from the project-check result.
 - Record ordinary completed work in repo-root `CHANGELOG.md`; reserve detailed work summaries for explicit retrospective requests.
-- AI SDK/OpenAI env setup is documented in `app/.env.example`. Provide `OPENAI_API_KEY`; prefer `OPENAI_MODEL=gpt-5-mini` and `OPENAI_HEAVY_MODEL=gpt-5.4`.
+- AI SDK/OpenAI env setup is documented in `app/.env.example`. Provide `OPENAI_API_KEY`; use `OPENAI_MODEL=gpt-5.6-terra` by default.
 - Reads: `query()` + `createResource()`.
 - For `createResource`, prefer `resource.latest` for steady UI during revalidation.
 - Use `resource()` directly only when you intentionally need loading/pending-state transitions.
@@ -85,6 +85,6 @@ Run inside `app/`:
 
 - The app package includes `ai`, `@ai-sdk/openai`, and `zod`.
 - Keep OpenAI usage in server-only code paths and read secrets from `process.env.OPENAI_API_KEY`.
-- Default to `gpt-5-mini`; use `gpt-5.4` for heavier reasoning only when the task warrants it.
+- Default to `gpt-5.6-terra` unless the user asks for another model.
 - Prefer `generateText()`/`streamText()` with `Output.object({ schema })` over older `generateObject()`/`streamObject()` examples in new code.
 - Define narrow `zod` schemas close to the server module that owns the contract and return typed objects across the server boundary instead of raw JSON strings.

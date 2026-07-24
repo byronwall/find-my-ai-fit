@@ -11,6 +11,7 @@ import {
   briefInputSchema,
   briefSchema,
   columnLabels,
+  createUseCasePrompt,
   focusInputSchema,
   focusedOutputSchema,
   generationInputSchema,
@@ -264,7 +265,8 @@ Success means:
 - explain how the selected tasks work together, what outcome they build toward, and the sensible sequence in two to four plain-language sentences
 - recommend one selected idea and explain why it is the smallest sensible start
 - propose a bounded, human-reviewed experiment
-- produce a ready-to-copy prompt containing context, constraints, required output, and stop rules
+- produce one distinct ready-to-copy prompt for every selected use case
+- pair every prompt with the exact selected use case id and include context, constraints, required output, and stop rules
 - preserve privacy and safety caveats relevant to the selected work
 - return only the required structured output.`;
 
@@ -296,11 +298,20 @@ export async function buildUseCaseBrief(rawInput: unknown): Promise<ActionResult
       providerResult = result;
       const brief = briefSchema.parse(result.experimental_output);
       const allowedIds = new Set(input.selected.map((item) => item.id));
+      const generatedPrompts = new Map(
+        brief.prompts
+          .filter((item) => allowedIds.has(item.useCaseId))
+          .map((item) => [item.useCaseId, item.prompt]),
+      );
       const data = {
         ...brief,
         recommendedUseCaseId: allowedIds.has(brief.recommendedUseCaseId)
           ? brief.recommendedUseCaseId
           : input.selected[0].id,
+        prompts: input.selected.map((item) => ({
+          useCaseId: item.id,
+          prompt: generatedPrompts.get(item.id) ?? createUseCasePrompt(input.profile, item),
+        })),
       };
       await completeGenerationRecord(generation, {
         ...savedResponse(result),
