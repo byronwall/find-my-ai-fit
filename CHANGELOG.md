@@ -4,6 +4,8 @@ This file records user-visible changes, important development workflow changes, 
 
 ## Unreleased
 
+- Replaced the original prototype README with current Find My AI Fit product, workflow, setup, privacy, generation-history, deployment, and repository documentation, including current landing-page and idea-refinement screenshots.
+
 - Replaced the stale “AI Use Case Grid” OpenGraph card with a “Find My AI Fit” social preview that uses the current strategy-studio brand, demonstrates the 3×3 opportunity map, and includes a clear next-step action. Completed the corresponding OpenGraph, Twitter, site-name, canonical URL, image-dimension, and alt-text metadata.
 
 - Replaced per-cell narrower-idea generation with one polished “Generate more ideas…” flow: each generated grid now includes two or three multiple-choice direction questions, an open feedback field guides a fresh replacement set, history arrows revisit earlier outputs, and selections from every set remain available in the final brief. Moved the generation action into the sticky top navigation as a secondary companion to “Build brief.”
