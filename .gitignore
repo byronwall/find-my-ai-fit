@@ -5,7 +5,6 @@ app/.vinxi/
 app/styled-system/
 dist/
 tmp/
-BYRON-WALL-LINKEDIN-RESUME.pdf
 node_modules/
 .pnpm-store/
 live-server-details.json
