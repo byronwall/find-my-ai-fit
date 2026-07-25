@@ -180,6 +180,7 @@ const queueStoreUpdate = (update: (store: AnalyticsStore) => void) => {
     .catch((error) => {
       console.error("[analytics] record write failed", error);
     });
+  return analyticsWriteQueue;
 };
 
 export const shouldTrackAnalyticsPath = (pathName: string) =>
@@ -192,15 +193,14 @@ export const shouldTrackAnalyticsPath = (pathName: string) =>
 
 export const logAnalyticsRequest = (
   record: Omit<AnalyticsRequestRecord, "id">,
-) => {
+) =>
   queueStoreUpdate((store) => {
     store.requests.push({ id: randomUUID(), ...record });
   });
-};
 
 export const logAnalyticsEvent = (
   record: Omit<AnalyticsEventRecord, "id" | "receivedAt">,
-) => {
+) =>
   queueStoreUpdate((store) => {
     store.events.push({
       id: randomUUID(),
@@ -208,7 +208,6 @@ export const logAnalyticsEvent = (
       ...record,
     });
   });
-};
 
 const visitorId = (record: AnalyticsRecord) =>
   record.userId ? `user:${record.userId}` : record.ip ? `ip:${record.ip}` : undefined;

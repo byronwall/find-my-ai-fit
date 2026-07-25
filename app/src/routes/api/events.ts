@@ -21,7 +21,7 @@ export async function POST(event: APIEvent) {
       forwardedFor?.split(",")[0]?.trim() ||
       event.request.headers.get("x-real-ip") ||
       undefined;
-    logAnalyticsEvent({
+    await logAnalyticsEvent({
       ...payload,
       ...(user ? { userId: user.id, userEmail: user.email } : {}),
       ip,

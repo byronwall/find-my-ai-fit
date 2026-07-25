@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -26,24 +26,32 @@ afterAll(async () => {
 describe("analytics store", () => {
   it("combines request, visitor, and event activity into dashboard views", async () => {
     const occurredAt = new Date().toISOString();
-    logAnalyticsRequest({
-      startedAt: occurredAt,
-      completedAt: occurredAt,
-      method: "GET",
-      path: "/",
-      query: "",
-      status: 200,
-      durationMs: 24,
-      requestBytes: 0,
-      responseBytes: 1200,
-      ip: "203.0.113.8",
-    });
-    logAnalyticsEvent({
-      event: "profile_uploaded",
-      detail: { filename: "resume.pdf" },
-      occurredAt,
-      ip: "203.0.113.8",
-    });
+    await Promise.all([
+      logAnalyticsRequest({
+        startedAt: occurredAt,
+        completedAt: occurredAt,
+        method: "GET",
+        path: "/",
+        query: "",
+        status: 200,
+        durationMs: 24,
+        requestBytes: 0,
+        responseBytes: 1200,
+        ip: "203.0.113.8",
+      }),
+      logAnalyticsEvent({
+        event: "profile_uploaded",
+        detail: { filename: "resume.pdf" },
+        occurredAt,
+        ip: "203.0.113.8",
+      }),
+    ]);
+
+    const persisted = JSON.parse(
+      await readFile(path.join(dataDir, "analytics/store.json"), "utf8"),
+    ) as { requests: unknown[]; events: unknown[] };
+    expect(persisted.requests).toHaveLength(1);
+    expect(persisted.events).toHaveLength(1);
 
     const snapshot = await getAnalyticsSnapshot();
 

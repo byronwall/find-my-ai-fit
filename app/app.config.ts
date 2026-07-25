@@ -54,6 +54,7 @@ const ciPrerenderConfig = forceSsgPrerender
   : undefined;
 
 export default defineConfig({
+  middleware: "./src/middleware.ts",
   server: {
     experimental: {
       websocket: true,

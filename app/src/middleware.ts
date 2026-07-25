@@ -1,7 +1,7 @@
 import { defineMiddleware } from "vinxi/http";
-import { SESSION_COOKIE, parseCookies } from "~/lib/account/session";
-import { getUserBySessionId } from "~/lib/account/store";
-import { logAnalyticsRequest, shouldTrackAnalyticsPath } from "~/lib/admin/analytics";
+import { SESSION_COOKIE, parseCookies } from "./lib/account/session";
+import { getUserBySessionId } from "./lib/account/store";
+import { logAnalyticsRequest, shouldTrackAnalyticsPath } from "./lib/admin/analytics";
 
 const analyticsContextKey = "analyticsStartedAt";
 
@@ -56,7 +56,7 @@ export default defineMiddleware({
       getResponseHeader(body, "content-type") ||
       event.node.res.getHeader("content-type")?.toString();
 
-    logAnalyticsRequest({
+    await logAnalyticsRequest({
       startedAt: new Date(startedAtMs).toISOString(),
       completedAt: new Date(completedAtMs).toISOString(),
       method: event.node.req.method ?? "GET",
