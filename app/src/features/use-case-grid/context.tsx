@@ -1,50 +1,75 @@
-import { createContext, createSignal, onMount, useContext, type ParentProps } from "solid-js";
-import { createStore } from "solid-js/store";
-import { fileToBase64, loadSavedIdeas, postJson, savedIdeasKey, storeSavedIdeas, track } from "./client-utils";
 import {
-  cellKey,
+  createContext,
+  createEffect,
+  createSignal,
+  untrack,
+  useContext,
+  type ParentProps,
+} from "solid-js";
+import { createStore } from "solid-js/store";
+import { postJson, track } from "./client-utils";
+import {
   createLocalBrief,
-  type ColumnId,
   type GridOutput,
   type Intent,
   type Brief,
-  type FocusedOutput,
-  type ProfileDirections,
   type Direction,
-  type RowId,
-  type UseCase,
 } from "./domain";
-import { exampleDirections, exampleFocus, exampleGrid, exampleIntent } from "./example-data";
+import { exampleDirections, exampleGrid, exampleIntent } from "./example-data";
 import {
   appendUniqueGeneration,
   collectSelectedUseCases,
   generationTitles,
 } from "./generation-history";
+import { useSessionClient } from "./session-client";
+import type {
+  AnalysisSession,
+  SessionRouteView,
+} from "./session-domain";
+import { createSessionGridState } from "./session-state";
 import { initialState, type GridContextValue, type GridState, type Screen } from "./context-types";
 
 const GridContext = createContext<GridContextValue>();
 
-export function UseCaseGridProvider(props: ParentProps) {
-  const [state, setState] = createStore<GridState>(initialState());
-  const [file, setFileSignal] = createSignal<File | null>(null);
-  const generateProfileDirections = (input: unknown) =>
-    postJson<ProfileDirections>("/api/use-case-grid/profile-directions", input);
-  const generateGrid = (input: unknown) => postJson<GridOutput>("/api/use-case-grid/generate", input);
-  const focusCell = (input: unknown) => postJson<FocusedOutput>("/api/use-case-grid/focus", input);
-  const createBrief = (input: unknown) => postJson<Brief>("/api/use-case-grid/brief", input);
+type UseCaseGridProviderProps = ParentProps<{
+  session?: AnalysisSession;
+  sessionView?: SessionRouteView;
+  routeRoundId?: string;
+}>;
 
-  onMount(() => {
-    try {
-      setState("savedIdeas", loadSavedIdeas());
-    } catch {
-      localStorage.removeItem(savedIdeasKey);
-    }
+export function UseCaseGridProvider(props: UseCaseGridProviderProps) {
+  const [state, setState] = createStore<GridState>(
+    untrack(() =>
+      props.session
+        ? createSessionGridState(
+            props.session,
+            props.sessionView ?? "review",
+            props.routeRoundId,
+          )
+        : initialState(),
+    ),
+  );
+  const [file, setFileSignal] = createSignal<File | null>(null);
+  const generateGrid = (input: unknown) => postJson<GridOutput>("/api/use-case-grid/generate", input);
+  const createBrief = (input: unknown) => postJson<Brief>("/api/use-case-grid/brief", input);
+  const sessionClient = useSessionClient({
+    session: () => props.session,
+    state,
+    setState,
+    setFile: setFileSignal,
   });
 
-  const persistSavedIdeas = (ideas: UseCase[]) => {
-    setState("savedIdeas", ideas);
-    storeSavedIdeas(ideas);
-  };
+  createEffect(() => {
+    const session = props.session;
+    if (!session) return;
+    setState(
+      createSessionGridState(
+        session,
+        props.sessionView ?? "review",
+        props.routeRoundId,
+      ),
+    );
+  });
 
   const setFile = (nextFile: File | null) => {
     setFileSignal(nextFile);
@@ -65,7 +90,6 @@ export function UseCaseGridProvider(props: ParentProps) {
   ) => {
     setState({
       ...initialState(),
-      savedIdeas: state.savedIdeas,
       source,
       profile: output.profile,
       directions,
@@ -96,52 +120,37 @@ export function UseCaseGridProvider(props: ParentProps) {
       return;
     }
 
-    setState({ pending: "profile", error: null, notice: null });
-    const result = await generateProfileDirections({
-      filename: selectedFile.name,
-      mediaType: "application/pdf",
-      base64: await fileToBase64(selectedFile),
-      intent: state.intent,
-    });
-    if (!result.ok) {
-      setState({ pending: null, error: result.error });
-      track("profile_analysis_failed");
-      return;
-    }
-    setState({
-      pending: null,
-      source: "profile-upload",
-      profile: result.data.profile,
-      directions: result.data.directions,
-      selectedDirectionIds: [],
-      screen: "profile-review",
-    });
-    setFileSignal(null);
-    track("profile_analyzed", { directions: result.data.directions.length });
+    await sessionClient.startProfile(selectedFile, state.intent);
   };
 
   const updateProfileSummary = (summary: string) => {
     if (!state.profile) return;
     setState("profile", { ...state.profile, summary });
+    sessionClient.saveSummarySoon(summary);
   };
 
   const toggleDirection = (id: string) => {
     const selected = state.selectedDirectionIds.includes(id);
-    setState(
-      "selectedDirectionIds",
-      selected
-        ? state.selectedDirectionIds.filter((directionId) => directionId !== id)
-        : [...state.selectedDirectionIds, id],
-    );
+    const next = selected
+      ? state.selectedDirectionIds.filter((directionId) => directionId !== id)
+      : [...state.selectedDirectionIds, id];
+    setState("selectedDirectionIds", next);
+    sessionClient.saveDirections(next);
   };
 
   const selectAllDirections = () => {
     const allSelected = state.selectedDirectionIds.length === state.directions.length;
-    setState("selectedDirectionIds", allSelected ? [] : state.directions.map((item) => item.id));
+    const next = allSelected ? [] : state.directions.map((item) => item.id);
+    setState("selectedDirectionIds", next);
+    sessionClient.saveDirections(next);
   };
 
   const continueToGrid = async () => {
     if (!state.profile) return;
+    if (props.session) {
+      await sessionClient.startGrid();
+      return;
+    }
     const selectedDirections = state.directions.filter(
       (item) => state.selectedDirectionIds.includes(item.id),
     );
@@ -171,6 +180,9 @@ export function UseCaseGridProvider(props: ParentProps) {
     feedback,
   }) => {
     if (!state.profile || state.directions.length === 0) return false;
+    if (props.session) {
+      return sessionClient.regenerate({ refinementAnswers, feedback });
+    }
     setState({ pending: "regenerate", error: null, notice: null });
     const result = await generateGrid({
       profile: state.profile,
@@ -193,8 +205,6 @@ export function UseCaseGridProvider(props: ParentProps) {
       useCases: nextGeneration.useCases,
       generationHistory: nextHistory,
       generationIndex: nextHistory.length - 1,
-      activeUseCaseId: null,
-      dismissedIds: [],
       notice: "A fresh set of 18 ideas is ready. Your earlier selections are still in the brief.",
     });
     track("grid_regenerated", {
@@ -205,37 +215,24 @@ export function UseCaseGridProvider(props: ParentProps) {
   };
 
   const showGeneration = (index: number) => {
+    if (sessionClient.showGeneration(index)) return;
     const generation = state.generationHistory[index];
     if (!generation || index === state.generationIndex) return;
     setState({
       generationIndex: index,
       useCases: generation.useCases,
-      activeUseCaseId: null,
-      dismissedIds: [],
       notice: `Showing idea set ${index + 1} of ${state.generationHistory.length}.`,
     });
     track("grid_history_viewed", { round: index + 1 });
   };
 
   const reset = () => {
-    const savedIdeas = state.savedIdeas;
-    setState({ ...initialState(), savedIdeas });
+    if (sessionClient.reset()) return;
+    setState(initialState());
     setFileSignal(null);
   };
 
-  const visibleUseCases = () =>
-    state.screen === "focus" && state.focus ? state.focus.useCases : state.useCases;
-
-  const activeUseCase = () =>
-    visibleUseCases().find((item) => item.id === state.activeUseCaseId) ?? null;
-
-  const openUseCase = (id: string) => {
-    setState("activeUseCaseId", id);
-    track("suggestion_opened", { id });
-  };
-  const closeUseCase = () => setState("activeUseCaseId", null);
   const isSelected = (id: string) => state.selectedIds.includes(id);
-  const isSaved = (id: string) => state.savedIdeas.some((item) => item.id === id);
 
   const toggleSelected = (id: string) => {
     const wasSelected = isSelected(id);
@@ -243,111 +240,20 @@ export function UseCaseGridProvider(props: ParentProps) {
       ? state.selectedIds.filter((item) => item !== id)
       : [...state.selectedIds, id];
     setState("selectedIds", next);
+    sessionClient.saveSelections(next);
     track(wasSelected ? "suggestion_unselected" : "suggestion_selected", { id });
   };
 
-  const dismiss = (id: string) => {
-    if (!state.dismissedIds.includes(id)) {
-      setState("dismissedIds", [...state.dismissedIds, id]);
-      setState("activeUseCaseId", null);
-      track("suggestion_dismissed", { id });
-    }
-  };
-
-  const restoreDismissed = () => setState("dismissedIds", []);
-
-  const toggleSaved = (id: string) => {
-    const useCase = visibleUseCases().find((item) => item.id === id);
-    if (!useCase) return;
-    const wasSaved = isSaved(id);
-    const next = wasSaved
-      ? state.savedIdeas.filter((item) => item.id !== id)
-      : [...state.savedIdeas, useCase].slice(-30);
-    persistSavedIdeas(next);
-    setState("notice", wasSaved ? "Removed from saved ideas." : "Saved for later on this device.");
-    track(wasSaved ? "suggestion_unsaved" : "suggestion_saved", { id });
-  };
-
-  const exploreCell = async (rowId: RowId, columnId: ColumnId) => {
-    if (!state.profile) return;
-    setState({ activeCell: { rowId, columnId }, activeUseCaseId: null, error: null });
-    if (state.source === "example" && cellKey(rowId, columnId) === "deliver:decisions") {
-      setState({ screen: "focus", focus: exampleFocus, focusChoice: null });
-      track("cell_focused", { cell: cellKey(rowId, columnId) });
-      return;
-    }
-
-    setState("pending", "focus");
-    const result = await focusCell({
-      profile: state.profile,
-      intent: state.intent,
-      rowId,
-      columnId,
-      selectedTitles: selectedUseCases().map((item) => item.title),
-    });
-    if (!result.ok) {
-      setState({ pending: null, error: result.error });
-      return;
-    }
-    setState({ pending: null, screen: "focus", focus: result.data, focusChoice: null });
-    track("cell_focused", { cell: cellKey(rowId, columnId) });
-  };
-
-  const chooseFocus = (choice: string) => setState("focusChoice", choice);
-
-  const generateMore = async () => {
-    if (!state.profile || !state.activeCell || !state.focus) return;
-    if (state.source === "example") {
-      const extras = exampleGrid.useCases.filter(
-        (item) =>
-          item.rowId === state.activeCell?.rowId &&
-          item.columnId === state.activeCell?.columnId &&
-          !state.focus?.useCases.some((focused) => focused.id === item.id),
-      );
-      if (extras.length > 0) {
-        setState("focus", "useCases", [...state.focus.useCases, ...extras]);
-        setState("notice", `${extras.length} more example ${extras.length === 1 ? "idea" : "ideas"} added to this area.`);
-      } else {
-        setState("notice", "All example ideas for this area are already shown.");
-      }
-      return;
-    }
-    setState({ pending: "focus", error: null });
-    const result = await focusCell({
-      profile: state.profile,
-      intent: state.intent,
-      rowId: state.activeCell.rowId,
-      columnId: state.activeCell.columnId,
-      selectedTitles: [
-        ...selectedUseCases().map((item) => item.title),
-        ...state.focus.useCases.map((item) => item.title),
-      ],
-      direction: state.focusChoice
-        ? `Prioritize: ${state.focusChoice}. Generate a fresh batch and avoid duplicate ideas.`
-        : "Generate a fresh batch and avoid duplicate ideas.",
-    });
-    if (!result.ok) {
-      setState({ pending: null, error: result.error });
-      return;
-    }
-    setState({ pending: null, focus: result.data });
-    track("more_generated", { cell: cellKey(state.activeCell.rowId, state.activeCell.columnId) });
-  };
-
-  const backToGrid = () => {
-    setState({ screen: "grid", activeCell: null, focus: null, focusChoice: null, activeUseCaseId: null });
-  };
-
   function selectedUseCases() {
-    return collectSelectedUseCases(
-      state.generationHistory,
-      state.focus?.useCases ?? [],
-      state.selectedIds,
-    );
+    return collectSelectedUseCases(state.generationHistory, [], state.selectedIds);
   }
 
   const buildBrief = async () => {
     if (!state.profile || state.selectedIds.length === 0) return;
+    if (props.session) {
+      await sessionClient.buildBrief();
+      return;
+    }
     const selected = selectedUseCases();
     setState({ pending: "brief", error: null });
     if (state.source === "example") {
@@ -364,7 +270,10 @@ export function UseCaseGridProvider(props: ParentProps) {
     track("brief_generated", { selected: selected.length });
   };
 
-  const backFromBrief = () => setState("screen", state.focus ? "focus" : "grid");
+  const backFromBrief = () => {
+    if (sessionClient.backToIdeas()) return;
+    setState("screen", "grid");
+  };
 
   const value: GridContextValue = {
     state,
@@ -380,22 +289,11 @@ export function UseCaseGridProvider(props: ParentProps) {
     regenerateGrid,
     showGeneration,
     reset,
-    openUseCase,
-    closeUseCase,
     toggleSelected,
-    dismiss,
-    restoreDismissed,
-    toggleSaved,
-    exploreCell,
-    chooseFocus,
-    generateMore,
-    backToGrid,
     buildBrief,
     backFromBrief,
     selectedUseCases,
-    activeUseCase,
     isSelected,
-    isSaved,
   };
 
   return <GridContext.Provider value={value}>{props.children}</GridContext.Provider>;

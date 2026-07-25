@@ -33,7 +33,10 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
 
-      # Required to identify the file-backed admin account.
+      # Required for the password-protected usage dashboard and generation inspector.
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env before starting the app}
+
+      # Required to identify the file-backed admin account scaffold.
       SUPER_USER_EMAIL: ${SUPER_USER_EMAIL:?Set SUPER_USER_EMAIL in .env before starting the app}
 
       # Optional billing. Set all three Stripe values to enable checkout and

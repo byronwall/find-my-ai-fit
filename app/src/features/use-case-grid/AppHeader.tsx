@@ -54,6 +54,8 @@ export function AppHeader() {
               class={styles.headerSecondaryAction}
               size="sm"
               variant="outline"
+              loading={grid.state.pending === "regenerate"}
+              loadingText="Generating…"
               onClick={() => setGenerationOpen(true)}
             >
               <Sparkles size={15} />

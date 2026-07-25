@@ -15,10 +15,18 @@ const gridSteps = [
   "Removing repeats and sizing first experiments",
 ];
 
+const briefSteps = [
+  "Reviewing the ideas you marked",
+  "Choosing the smallest useful starting point",
+  "Preparing one prompt for every selected task",
+];
+
 export function GenerationScreen() {
   const grid = useUseCaseGrid();
   const isProfile = () => grid.state.pending === "profile";
-  const steps = () => (isProfile() ? profileSteps : gridSteps);
+  const isBrief = () => grid.state.pending === "brief";
+  const steps = () =>
+    isProfile() ? profileSteps : isBrief() ? briefSteps : gridSteps;
 
   return (
     <main class={styles.generationPage} aria-live="polite" aria-busy="true">
@@ -28,15 +36,25 @@ export function GenerationScreen() {
         </span>
         <div>
           <p class={styles.generationKicker}>
-            {isProfile() ? "First, find the useful direction" : "Now, build the opportunity map"}
+            {isProfile()
+              ? "First, find the useful direction"
+              : isBrief()
+                ? "Turn your choices into a plan"
+                : "Now, build the opportunity map"}
           </p>
           <h1 class={styles.generationTitle}>
-            {isProfile() ? "Reading your work—not guessing at a solution." : "Building ideas around what you chose."}
+            {isProfile()
+              ? "Reading your work—not guessing at a solution."
+              : isBrief()
+                ? "Building a practical next step from your choices."
+                : "Building ideas around what you chose."}
           </h1>
           <p class={styles.generationCopy}>
             {isProfile()
               ? "You’ll get nine glanceable choices before we spend time generating the full grid."
-              : "This is the heavier step. Your profile PDF is no longer part of the request."}
+              : isBrief()
+                ? "Your selected ideas and reviewed profile are enough. The original PDF is not part of this request."
+                : "This is the heavier step. Your profile PDF is no longer part of the request."}
           </p>
         </div>
         <div class={styles.generationSteps}>

@@ -1,5 +1,4 @@
 import {
-  type FocusedOutput,
   type Direction,
   type GridOutput,
   type Intent,
@@ -109,19 +108,5 @@ export const exampleGrid: GridOutput = {
       question: "How close should these ideas get to sensitive work?",
       choices: ["Stay with low-risk preparation", "Use approved de-identified inputs", "Explore safeguards and controls"],
     },
-  ],
-};
-
-export const exampleFocus: FocusedOutput = {
-  focusSummary: "You appear most interested in helping managers handle ambiguous people issues consistently. This area narrows by the moment of support and the kind of guidance needed.",
-  refinementQuestion: "Which would be more valuable first?",
-  choices: ["Help a manager prepare", "Route an issue", "Learn from patterns"],
-  useCases: [
-    makeUseCase({ id: "manager-issue-intake", title: "Manager issue intake", summary: "Guide managers to capture the right context before HR review.", fitReason: "It strengthens the earliest point in the support workflow.", expectedBenefit: "More complete intake and faster routing.", firstStep: "Prototype five intake questions using fictional scenarios.", feasibility: "configure", specificity: "focused", rowId: "deliver", columnId: "decisions", sensitivityNote: "Exclude employee-identifiable or protected details." }),
-    makeUseCase({ id: "conversation-question-builder", title: "Conversation question builder", summary: "Generate neutral questions for an upcoming manager conversation.", fitReason: "It supports manager preparation without deciding the outcome.", expectedBenefit: "Better-prepared, less prejudged conversations.", firstStep: "Test with one fictional coaching conversation.", feasibility: "use-now", specificity: "focused", rowId: "deliver", columnId: "decisions" }),
-    makeUseCase({ id: "policy-source-finder", title: "Live policy source finder", summary: "Retrieve approved policy passages relevant to a manager’s question.", fitReason: "It brings authoritative sources into the review moment.", expectedBenefit: "Less search time and clearer citations.", firstStep: "Benchmark 20 routine questions against one approved policy.", feasibility: "configure", specificity: "focused", rowId: "deliver", columnId: "decisions" }),
-    makeUseCase({ id: "scenario-tradeoffs", title: "Scenario tradeoff comparison", summary: "Compare response options and expose assumptions, risks, and missing facts.", fitReason: "The role frequently weighs context before recommending action.", expectedBenefit: "More transparent options for human review.", firstStep: "Test a fictional scenario and inspect whether any option is presented as certain.", feasibility: "use-now", specificity: "focused", rowId: "deliver", columnId: "decisions" }),
-    makeUseCase({ id: "documentation-check", title: "Documentation completeness check", summary: "Check a draft for missing required information without judging the employee.", fitReason: "Complete documentation supports consistent follow-up.", expectedBenefit: "Fewer avoidable clarification loops.", firstStep: "Define a checklist and test it on synthetic documentation.", feasibility: "configure", specificity: "focused", rowId: "deliver", columnId: "decisions", sensitivityNote: "Use synthetic data until an approved environment exists." }),
-    makeUseCase({ id: "manager-need-review", title: "Recurring manager need review", summary: "Aggregate de-identified questions to reveal recurring support and training needs.", fitReason: "It converts repeated one-off questions into learning priorities.", expectedBenefit: "More targeted manager enablement.", firstStep: "Tag a small approved sample and compare themes with the training plan.", feasibility: "configure", specificity: "focused", rowId: "deliver", columnId: "decisions" }),
   ],
 };

@@ -11,14 +11,21 @@ import {
   ERROR_OVERLAY_COMPONENT_KEY,
   SIMPLE_COMPONENT_LINKS,
 } from "./src/components/comps-explorer/compsExplorer.shared";
+import { normalizeServerBasePath } from "./src/lib/app/base-path";
 import { recipes } from "./src/theme/recipes";
 
 const basePath = process.env.BASE_PATH?.trim();
 const forceSsgPrerender = process.env.CI_SSG_PRERENDER === "true";
-const normalizedBasePath =
-  !basePath || basePath === "/"
-    ? "/"
-    : `/${basePath.replace(/^\/+|\/+$/g, "")}/`;
+const normalizedBasePath = normalizeServerBasePath(basePath);
+const solidServerBaseUrlPlugin = {
+  name: "solid-server-base-url",
+  enforce: "post" as const,
+  configResolved(config: { define?: Record<string, string> }) {
+    config.define ??= {};
+    config.define["import.meta.env.SERVER_BASE_URL"] =
+      JSON.stringify(normalizedBasePath);
+  },
+};
 
 const recipeComponentKeys = Object.keys(recipes).map((key) =>
   key === "switchRecipe" ? "switch" : key,
@@ -55,7 +62,11 @@ export default defineConfig({
     ...(ciPrerenderConfig ? { prerender: ciPrerenderConfig } : {}),
   },
   vite: {
-    plugins: [lucidePreprocess(), tsconfigPaths()],
+    plugins: [
+      lucidePreprocess(),
+      tsconfigPaths(),
+      solidServerBaseUrlPlugin,
+    ],
     optimizeDeps: {
       // these are required for solid-markdown to work
       include: ["solid-markdown > micromark", "solid-markdown > unified"],

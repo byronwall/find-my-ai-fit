@@ -20,6 +20,8 @@ const generationErrorSchema = z.object({
 export const generationRecordSchema = z.object({
   schemaVersion: z.literal(1),
   id: z.uuid(),
+  sessionId: z.uuid().optional(),
+  roundId: z.uuid().optional(),
   kind: generationKindSchema,
   status: generationStatusSchema,
   model: z.string(),
@@ -36,7 +38,7 @@ export type GenerationRecord = z.infer<typeof generationRecordSchema>;
 
 export type GenerationSummary = Pick<
   GenerationRecord,
-  "id" | "kind" | "status" | "model" | "startedAt" | "completedAt" | "durationMs" | "error"
+  "id" | "sessionId" | "roundId" | "kind" | "status" | "model" | "startedAt" | "completedAt" | "durationMs" | "error"
 >;
 
 const getWorkspaceRoot = () => {
@@ -80,10 +82,14 @@ export const startGenerationRecord = async (input: {
   kind: GenerationKind;
   model: string;
   request: unknown;
+  sessionId?: string;
+  roundId?: string;
 }) => {
   const record = generationRecordSchema.parse({
     schemaVersion: 1,
     id: randomUUID(),
+    sessionId: input.sessionId,
+    roundId: input.roundId,
     kind: input.kind,
     status: "pending",
     model: input.model,
@@ -158,8 +164,10 @@ export const listGenerationRecords = async (): Promise<GenerationSummary[]> => {
   );
   return records
     .filter((record): record is GenerationRecord => record !== null)
-    .map(({ id, kind, status, model, startedAt, completedAt, durationMs, error }) => ({
+    .map(({ id, sessionId, roundId, kind, status, model, startedAt, completedAt, durationMs, error }) => ({
       id,
+      sessionId,
+      roundId,
       kind,
       status,
       model,

@@ -12,13 +12,10 @@ import {
   briefSchema,
   columnLabels,
   createUseCasePrompt,
-  focusInputSchema,
-  focusedOutputSchema,
   generationInputSchema,
   gridOutputSchema,
   rowLabels,
   type Brief,
-  type FocusedOutput,
   type GridOutput,
   type UseCase,
 } from "./domain";
@@ -113,7 +110,10 @@ const safeError = (error: unknown) => {
   return "We could not generate this grid. Your PDF was not saved. Please try again.";
 };
 
-export async function generateGrid(rawInput: unknown): Promise<ActionResult<GridOutput>> {
+export async function generateGrid(
+  rawInput: unknown,
+  traceContext: { sessionId?: string; roundId?: string } = {},
+): Promise<ActionResult<GridOutput>> {
     let generation: GenerationRecord | undefined;
     let providerResult: Awaited<ReturnType<typeof generateText>> | undefined;
     try {
@@ -125,6 +125,8 @@ export async function generateGrid(rawInput: unknown): Promise<ActionResult<Grid
       generation = await startGenerationRecord({
         kind: "use-case-grid",
         model: modelId(),
+        sessionId: traceContext.sessionId,
+        roundId: traceContext.roundId,
         request: {
           system: generationSystem,
           input,
@@ -198,65 +200,6 @@ export const generateGridAction = action(async (rawInput) => {
   return generateGrid(rawInput);
 }, "generate-use-case-grid");
 
-const focusSystem = `Refine one cell in an AI use case grid.
-
-Success means:
-- produce five to eight narrower, non-duplicative ideas inside the requested row and column
-- increase specificity and actionability instead of merely rephrasing the parent ideas
-- ask one short question whose answer would materially change the ranking or direction
-- preserve the supplied rowId and columnId on every idea
-- keep consequential decisions with qualified humans
-- return only the required structured output
-
-Use null for sensitivityNote when no special warning is needed.`;
-
-export async function focusUseCaseCell(rawInput: unknown): Promise<ActionResult<FocusedOutput>> {
-    let generation: GenerationRecord | undefined;
-    let providerResult: Awaited<ReturnType<typeof generateText>> | undefined;
-    try {
-      const input = focusInputSchema.parse(rawInput);
-      const prompt = `Profile summary: ${input.profile.summary}\nRoles: ${input.profile.roles.join(", ")}\nGoal: ${input.intent.goal ?? "Explore"}\nFocus row: ${input.rowId} (${rowLabels[input.rowId]})\nFocus column: ${input.columnId} (${columnLabels[input.columnId]})\nAlready selected: ${input.selectedTitles.join(", ") || "None"}\nUser direction: ${input.direction ?? "None"}`;
-      generation = await startGenerationRecord({
-        kind: "focused-cell",
-        model: modelId(),
-        request: { system: focusSystem, prompt, input, providerOptions, maxRetries: 2 },
-      });
-      const result = await generateText({
-        model: openai.responses(modelId()),
-        system: focusSystem,
-        prompt,
-        experimental_output: Output.object({ schema: focusedOutputSchema }),
-        providerOptions,
-        maxRetries: 2,
-      });
-      providerResult = result;
-      const parsed = focusedOutputSchema.parse(result.experimental_output);
-      await completeGenerationRecord(generation, savedResponse(result));
-      return {
-        ok: true,
-        data: { ...parsed, useCases: normalizeIds(parsed.useCases) },
-        generationId: generation.id,
-      };
-    } catch (error) {
-      if (generation) {
-        await failGenerationRecord(
-          generation,
-          error,
-          providerResult ? savedResponse(providerResult) : undefined,
-        );
-      }
-      console.error("use-case-grid:focus-failed", {
-        name: error instanceof Error ? error.name : "UnknownError",
-      });
-      return { ok: false, error: safeError(error), generationId: generation?.id };
-    }
-}
-
-export const focusCellAction = action(async (rawInput) => {
-  "use server";
-  return focusUseCaseCell(rawInput);
-}, "focus-use-case-cell");
-
 const briefSystem = `Create a concise execution handoff from selected AI use cases.
 
 Success means:
@@ -270,7 +213,10 @@ Success means:
 - preserve privacy and safety caveats relevant to the selected work
 - return only the required structured output.`;
 
-export async function buildUseCaseBrief(rawInput: unknown): Promise<ActionResult<Brief>> {
+export async function buildUseCaseBrief(
+  rawInput: unknown,
+  traceContext: { sessionId?: string } = {},
+): Promise<ActionResult<Brief>> {
     let generation: GenerationRecord | undefined;
     let providerResult: Awaited<ReturnType<typeof generateText>> | undefined;
     try {
@@ -285,6 +231,7 @@ export async function buildUseCaseBrief(rawInput: unknown): Promise<ActionResult
       generation = await startGenerationRecord({
         kind: "execution-brief",
         model: modelId(),
+        sessionId: traceContext.sessionId,
         request: { system: briefSystem, prompt, input, providerOptions, maxRetries: 2 },
       });
       const result = await generateText({

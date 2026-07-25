@@ -4,6 +4,15 @@ This file records user-visible changes, important development workflow changes, 
 
 ## Unreleased
 
+- Added a password-protected `/admin` usage desk with 24-hour, 7-day, 30-day, and all-time views of visitors, requests, errors, paths, and captured product events. Admin access now uses `ADMIN_PASSWORD` to issue a signed 30-day HttpOnly cookie, and the existing generation inspector shares the same gate.
+  - Persisted client analytics events alongside request telemetry, excluded admin traffic from product usage counts, and added empty/loading/error states for the operational dashboard.
+
+- Split personalized work into durable, refresh-safe routes for profile review, each generated idea round, and the final brief. Session state, selections, round history, pending work, and generated briefs now persist as UUID-addressed JSON without retaining uploaded PDF bodies.
+  - Corrected SolidStart's resolved client base so root deployments generate `/_server` requests instead of the invalid protocol-relative `//_server` URL.
+  - Kept filesystem-only session modules behind server-function boundaries and stabilized the saved-session hydration key so refreshed routes hydrate instead of returning a false 404 with inert controls.
+  - Disabled client analytics beacons in development so local ad blockers do not report harmless `/api/events` failures for ordinary grid interactions.
+  - Revalidated the saved-session query before generated-route navigation so idea and brief pages receive the pending state immediately and replace it with completed output without requiring a manual refresh.
+
 - Replaced the original prototype README with current Find My AI Fit product, workflow, setup, privacy, generation-history, deployment, and repository documentation, including current landing-page and idea-refinement screenshots.
 
 - Replaced the stale “AI Use Case Grid” OpenGraph card with a “Find My AI Fit” social preview that uses the current strategy-studio brand, demonstrates the 3×3 opportunity map, and includes a clear next-step action. Completed the corresponding OpenGraph, Twitter, site-name, canonical URL, image-dimension, and alt-text metadata.
@@ -18,6 +27,7 @@ This file records user-visible changes, important development workflow changes, 
   - Polished the brief with a stronger recommended-action anchor, high-contrast active task state, and readable labeled prompt paragraphs.
   - Put the concrete recommended task first, flattened the plan into the page, and removed the nested dark callout so the opening reads as one practical sequence.
   - Added a dedicated generated prompt for every selected task, moved each prompt into its task detail, and kept the desktop task picker visible while the detail scrolls.
+  - Expanded the active task prompt to its full height so the page uses one vertical scrollbar.
 
 - Simplified the opportunity grid into a checklist: each idea card now toggles “Interesting” directly, with save, dismiss, and detail actions removed from the grid workflow.
   - Hid the unchecked “Interesting” affordance until hover or keyboard focus while keeping selected cards visibly marked.

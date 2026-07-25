@@ -29,10 +29,14 @@ afterEach(async () => {
 describe("generation store", () => {
   it("persists and reloads a completed generation by UUID", async () => {
     const dataDir = await useTemporaryDataDir();
+    const sessionId = crypto.randomUUID();
+    const roundId = crypto.randomUUID();
     const pending = await startGenerationRecord({
       kind: "use-case-grid",
       model: "test-model",
       request: { prompt: "Build a grid", base64: "pdf-data" },
+      sessionId,
+      roundId,
     });
     await completeGenerationRecord(pending, {
       output: { useCases: [] },
@@ -42,6 +46,8 @@ describe("generation store", () => {
     const reloaded = await getGenerationRecord(pending.id);
     expect(reloaded).toMatchObject({
       id: pending.id,
+      sessionId,
+      roundId,
       status: "completed",
       model: "test-model",
       response: { output: { useCases: [] } },

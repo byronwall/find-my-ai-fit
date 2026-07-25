@@ -1,17 +1,14 @@
 import type { Accessor } from "solid-js";
 import type {
   Brief,
-  ColumnId,
   Direction,
-  FocusedOutput,
   GridOutput,
   Intent,
   Profile,
-  RowId,
   UseCase,
 } from "./domain";
 
-export type Screen = "landing" | "profile-review" | "grid" | "focus" | "brief";
+export type Screen = "landing" | "profile-review" | "grid" | "brief";
 
 export type GridState = {
   screen: Screen;
@@ -24,14 +21,8 @@ export type GridState = {
   generationHistory: GridOutput[];
   generationIndex: number;
   selectedIds: string[];
-  dismissedIds: string[];
-  savedIdeas: UseCase[];
-  activeUseCaseId: string | null;
-  activeCell: { rowId: RowId; columnId: ColumnId } | null;
-  focus: FocusedOutput | null;
-  focusChoice: string | null;
   brief: Brief | null;
-  pending: "profile" | "grid" | "regenerate" | "focus" | "brief" | null;
+  pending: "profile" | "grid" | "regenerate" | "brief" | null;
   error: string | null;
   notice: string | null;
 };
@@ -53,22 +44,11 @@ export type GridContextValue = {
   }) => Promise<boolean>;
   showGeneration: (index: number) => void;
   reset: () => void;
-  openUseCase: (id: string) => void;
-  closeUseCase: () => void;
   toggleSelected: (id: string) => void;
-  dismiss: (id: string) => void;
-  restoreDismissed: () => void;
-  toggleSaved: (id: string) => void;
-  exploreCell: (rowId: RowId, columnId: ColumnId) => Promise<void>;
-  chooseFocus: (choice: string) => void;
-  generateMore: () => Promise<void>;
-  backToGrid: () => void;
   buildBrief: () => Promise<void>;
   backFromBrief: () => void;
   selectedUseCases: () => UseCase[];
-  activeUseCase: () => UseCase | null;
   isSelected: (id: string) => boolean;
-  isSaved: (id: string) => boolean;
 };
 
 export const initialState = (): GridState => ({
@@ -82,12 +62,6 @@ export const initialState = (): GridState => ({
   generationHistory: [],
   generationIndex: 0,
   selectedIds: [],
-  dismissedIds: [],
-  savedIdeas: [],
-  activeUseCaseId: null,
-  activeCell: null,
-  focus: null,
-  focusChoice: null,
   brief: null,
   pending: null,
   error: null,

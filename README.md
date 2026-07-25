@@ -41,7 +41,7 @@ resume
 - Panda CSS with shared Park UI / Ark UI wrappers
 - Vercel AI SDK with the OpenAI Responses API
 - Zod schemas for every model and JSON boundary
-- File-backed JSON generation records
+- File-backed JSON workflow sessions and generation records
 - Vitest and ESLint
 - Docker Compose deployment with a persistent `/app/data` volume
 
@@ -85,13 +85,30 @@ The full environment contract lives in [`app/.env.example`](app/.env.example).
 | `APP_DATA_DIR` | File-backed runtime data directory; defaults to `app/data` |
 | `APP_BASE_URL` | Public application URL outside Coolify |
 | `BASE_PATH` | Optional deployment subpath |
+| `ADMIN_PASSWORD` | Required password for `/admin`; rotating it invalidates existing admin cookies |
 | `SUPER_USER_EMAIL` | Admin identity used by the reusable account scaffold |
 | `EMAIL_DELIVERY`, `RESEND_API_KEY`, `EMAIL_FROM` | Optional magic-link email delivery |
 | `STRIPE_*` | Optional credit-pack billing scaffold |
 
 The AI use-case workflow itself does not send email and does not require Stripe.
 
-## Generation records and privacy
+## Durable sessions, generation records, and privacy
+
+Personalized work receives stable, directly addressable routes:
+
+```text
+/sessions/<session-id>/review
+/sessions/<session-id>/ideas/<round-id>
+/sessions/<session-id>/brief
+```
+
+The current profile, chosen directions, every idea round, selections, pending operation, and generated brief are stored under:
+
+```text
+APP_DATA_DIR/use-case-sessions/<uuid>.json
+```
+
+Refreshing or reopening one of these routes restores the saved workflow. A new idea round receives its route before generation starts, so an interrupted request can also recover into its pending, completed, or failed state.
 
 Every model execution creates a UUID-addressed JSON record under:
 
@@ -103,15 +120,19 @@ Records capture the generation kind, model, prompt inputs, normalized output, pr
 
 The raw PDF is sent to the configured OpenAI model for the active profile-analysis request. OpenAI response storage is disabled with `store: false`. The application replaces the PDF body with a redacted marker before writing its local generation trace; it does not save the uploaded file itself.
 
-The structured profile extracted from that document, subsequent prompts, and generated results are part of the file-backed generation history. Do not use real sensitive employment, medical, financial, or otherwise confidential material in an unsecured deployment.
+The structured profile extracted from that document, chosen directions, subsequent prompts, generated results, and selections are part of the file-backed session and generation history. Do not use real sensitive employment, medical, financial, or otherwise confidential material in an unsecured deployment.
 
-The operator view is available at:
+The password-protected usage dashboard and generation inspector are available at:
 
 ```text
+/admin
 /admin/generations
 ```
 
-It lists generation records and opens individual runs by UUID. These routes are development/operator tooling and should not be exposed publicly without adding appropriate access controls.
+`/admin` summarizes persisted request traffic, visitors, errors, paths, and product
+events. A successful `ADMIN_PASSWORD` sign-in creates a signed 30-day HttpOnly
+cookie. Analytics data is retained under `APP_DATA_DIR/analytics/store.json`;
+generation records can be opened individually by UUID.
 
 ## Docker
 
@@ -119,7 +140,7 @@ Compose expects a repository-root `.env`. The easiest starting point is:
 
 ```bash
 cp app/.env.example .env
-# Set OPENAI_API_KEY and SUPER_USER_EMAIL
+# Set OPENAI_API_KEY, ADMIN_PASSWORD, and SUPER_USER_EMAIL
 docker compose up --build
 ```
 
@@ -129,7 +150,10 @@ docker compose up --build
 
 - `app/` — SolidStart application, server routes, UI, tests, and deployment source
 - `app/src/features/use-case-grid/` — the product flow and domain schemas
+- `app/src/features/use-case-grid/session-store.ts` — UUID-addressed workflow-session persistence
+- `app/src/routes/sessions/` — refresh-safe profile, idea-round, and brief routes
 - `app/src/lib/ai/generation-store.ts` — UUID-addressed generation persistence
+- `app/src/features/admin-analytics/` — protected usage dashboard and event ledger
 - `app/src/routes/admin/generations/` — generation history and detail views
 - `ai-use-case-grid/` — original product brief, jobs-to-be-done inventory, grid model, backlog, example content, and mockups
 - `brainstorming-tool-and-ai-use-case-generator-with-hierarchical-grid-ui.md` — the original 50-minute dictation transcript

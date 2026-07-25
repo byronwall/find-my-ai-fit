@@ -1,9 +1,10 @@
 import type { APIEvent } from "@solidjs/start/server";
-import { requireSuperUser } from "~/lib/account/admin";
 import { getAnalyticsSnapshot } from "~/lib/admin/analytics";
+import { hasValidAdminSession } from "~/lib/admin/session";
 
 export async function GET(event: APIEvent) {
-  const auth = await requireSuperUser(event);
-  if (!auth.ok) return auth.response;
+  if (!hasValidAdminSession(event.request)) {
+    return Response.json({ error: "Admin sign-in required." }, { status: 401 });
+  }
   return Response.json(await getAnalyticsSnapshot());
 }

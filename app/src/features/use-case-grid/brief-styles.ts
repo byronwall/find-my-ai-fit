@@ -149,8 +149,6 @@ export const briefStyles = {
     borderRadius: "l2",
     borderWidth: "1px",
     borderColor: "brand.border",
-    maxH: "520px",
-    overflowY: "auto",
   }),
   promptParagraph: css({
     whiteSpace: "pre-line",

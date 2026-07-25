@@ -1,67 +1,103 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
 
-export type AnalyticsRequestRecord = {
-  id: string;
-  startedAt: string;
-  completedAt: string;
-  method: string;
-  path: string;
-  query: string;
-  status: number;
-  durationMs: number;
-  requestBytes: number;
-  responseBytes: number;
-  userId?: string;
-  userEmail?: string;
-  ip?: string;
-  userAgent?: string;
-  referer?: string;
-  contentType?: string;
-  responseContentType?: string;
-};
+const analyticsDetailValueSchema = z.union([z.string(), z.number()]);
+
+const analyticsRequestRecordSchema = z.object({
+  id: z.uuid(),
+  startedAt: z.iso.datetime(),
+  completedAt: z.iso.datetime(),
+  method: z.string(),
+  path: z.string(),
+  query: z.string(),
+  status: z.number().int(),
+  durationMs: z.number().nonnegative(),
+  requestBytes: z.number().nonnegative(),
+  responseBytes: z.number().nonnegative(),
+  userId: z.string().optional(),
+  userEmail: z.string().optional(),
+  ip: z.string().optional(),
+  userAgent: z.string().optional(),
+  referer: z.string().optional(),
+  contentType: z.string().optional(),
+  responseContentType: z.string().optional(),
+});
+
+const analyticsEventRecordSchema = z.object({
+  id: z.uuid(),
+  event: z.string(),
+  detail: z.record(z.string(), analyticsDetailValueSchema),
+  occurredAt: z.iso.datetime(),
+  receivedAt: z.iso.datetime(),
+  userId: z.string().optional(),
+  userEmail: z.string().optional(),
+  ip: z.string().optional(),
+  userAgent: z.string().optional(),
+});
+
+const analyticsStoreSchema = z.object({
+  schemaVersion: z.literal(2),
+  requests: z.array(analyticsRequestRecordSchema),
+  events: z.array(analyticsEventRecordSchema),
+});
+
+export type AnalyticsRequestRecord = z.infer<typeof analyticsRequestRecordSchema>;
+export type AnalyticsEventRecord = z.infer<typeof analyticsEventRecordSchema>;
 
 export type AnalyticsMetric = {
   label: string;
   value: number;
-  requestBytes: number;
-  responseBytes: number;
   averageDurationMs: number;
   errorCount: number;
 };
 
+export type AnalyticsTrendPoint = {
+  startedAt: string;
+  requests: number;
+  events: number;
+  visitors: number;
+  errors: number;
+};
+
+export type AnalyticsView = {
+  from?: string;
+  totals: {
+    visitors: number;
+    identifiedUsers: number;
+    requests: number;
+    events: number;
+    errors: number;
+    averageDurationMs: number;
+    successRate: number;
+  };
+  trend: AnalyticsTrendPoint[];
+  topPaths: AnalyticsMetric[];
+  topEvents: AnalyticsMetric[];
+  topVisitors: AnalyticsMetric[];
+  recentRequests: AnalyticsRequestRecord[];
+  recentEvents: AnalyticsEventRecord[];
+};
+
 export type AnalyticsSnapshot = {
   generatedAt: string;
+  firstActivityAt?: string;
+  lastActivityAt?: string;
   retainedRequestCount: number;
-  firstRequestAt?: string;
-  lastRequestAt?: string;
-  totals: {
-    requests: number;
-    success: number;
-    redirects: number;
-    clientErrors: number;
-    serverErrors: number;
-    requestBytes: number;
-    responseBytes: number;
-    averageDurationMs: number;
-    uniqueIps: number;
+  retainedEventCount: number;
+  views: {
+    day: AnalyticsView;
+    week: AnalyticsView;
+    month: AnalyticsView;
+    all: AnalyticsView;
   };
-  lastHour: AnalyticsSnapshot["totals"];
-  topPaths: AnalyticsMetric[];
-  topUsers: AnalyticsMetric[];
-  topUserAgents: AnalyticsMetric[];
-  topReferers: AnalyticsMetric[];
-  statusGroups: AnalyticsMetric[];
-  recentRequests: AnalyticsRequestRecord[];
 };
 
-type AnalyticsStore = {
-  schemaVersion: 1;
-  requests: AnalyticsRequestRecord[];
-};
+type AnalyticsStore = z.infer<typeof analyticsStoreSchema>;
+type AnalyticsRecord = AnalyticsRequestRecord | AnalyticsEventRecord;
 
-const maxRetainedRequests = 10_000;
+const maxRetainedRecords = 10_000;
 let analyticsWriteQueue = Promise.resolve();
 
 const getWorkspaceRoot = () => {
@@ -88,16 +124,40 @@ const fileExists = async (filePath: string) => {
   }
 };
 
-const emptyStore = (): AnalyticsStore => ({ schemaVersion: 1, requests: [] });
+const emptyStore = (): AnalyticsStore => ({
+  schemaVersion: 2,
+  requests: [],
+  events: [],
+});
+
+const parseRecordList = <T>(
+  values: unknown,
+  schema: z.ZodType<T>,
+) =>
+  Array.isArray(values)
+    ? values.flatMap((value) => {
+        const parsed = schema.safeParse(value);
+        return parsed.success ? [parsed.data] : [];
+      })
+    : [];
 
 const readStore = async (): Promise<AnalyticsStore> => {
   const storePath = getStorePath();
   if (!(await fileExists(storePath))) return emptyStore();
-  const parsed = JSON.parse(await readFile(storePath, "utf8")) as Partial<AnalyticsStore>;
-  return {
-    schemaVersion: 1,
-    requests: Array.isArray(parsed.requests) ? parsed.requests : [],
-  };
+  try {
+    const raw = JSON.parse(await readFile(storePath, "utf8")) as {
+      requests?: unknown;
+      events?: unknown;
+    };
+    return analyticsStoreSchema.parse({
+      schemaVersion: 2,
+      requests: parseRecordList(raw.requests, analyticsRequestRecordSchema),
+      events: parseRecordList(raw.events, analyticsEventRecordSchema),
+    });
+  } catch (error) {
+    console.error("[analytics] store could not be read; using an empty snapshot", error);
+    return emptyStore();
+  }
 };
 
 const writeStore = async (store: AnalyticsStore) => {
@@ -108,84 +168,76 @@ const writeStore = async (store: AnalyticsStore) => {
   await rename(tempPath, storePath);
 };
 
-export const shouldTrackAnalyticsPath = (pathName: string) =>
-  !pathName.startsWith("/_build/") &&
-  !pathName.startsWith("/favicon") &&
-  !pathName.startsWith("/apple-touch-icon") &&
-  !pathName.startsWith("/site.webmanifest") &&
-  pathName !== "/api/admin/analytics";
-
-export const logAnalyticsRequest = (record: Omit<AnalyticsRequestRecord, "id">) => {
+const queueStoreUpdate = (update: (store: AnalyticsStore) => void) => {
   analyticsWriteQueue = analyticsWriteQueue
     .then(async () => {
       const store = await readStore();
-      store.requests.push({ id: randomUUID(), ...record });
-      if (store.requests.length > maxRetainedRequests) {
-        store.requests = store.requests.slice(-maxRetainedRequests);
-      }
+      update(store);
+      store.requests = store.requests.slice(-maxRetainedRecords);
+      store.events = store.events.slice(-maxRetainedRecords);
       await writeStore(store);
     })
     .catch((error) => {
-      console.error("[analytics] request log failed", error);
+      console.error("[analytics] record write failed", error);
     });
 };
 
-const emptyTotals = (): AnalyticsSnapshot["totals"] => ({
-  requests: 0,
-  success: 0,
-  redirects: 0,
-  clientErrors: 0,
-  serverErrors: 0,
-  requestBytes: 0,
-  responseBytes: 0,
-  averageDurationMs: 0,
-  uniqueIps: 0,
-});
+export const shouldTrackAnalyticsPath = (pathName: string) =>
+  !pathName.startsWith("/_build/") &&
+  !pathName.startsWith("/admin") &&
+  !pathName.startsWith("/api/admin") &&
+  !pathName.startsWith("/favicon") &&
+  !pathName.startsWith("/apple-touch-icon") &&
+  !pathName.startsWith("/site.webmanifest");
 
-const summarizeTotals = (records: AnalyticsRequestRecord[]) => {
-  const totals = emptyTotals();
-  const ips = new Set<string>();
-  let durationTotal = 0;
-  for (const record of records) {
-    totals.requests += 1;
-    totals.requestBytes += record.requestBytes;
-    totals.responseBytes += record.responseBytes;
-    durationTotal += record.durationMs;
-    if (record.ip) ips.add(record.ip);
-    if (record.status >= 500) totals.serverErrors += 1;
-    else if (record.status >= 400) totals.clientErrors += 1;
-    else if (record.status >= 300) totals.redirects += 1;
-    else totals.success += 1;
-  }
-  totals.uniqueIps = ips.size;
-  totals.averageDurationMs = records.length ? Math.round(durationTotal / records.length) : 0;
-  return totals;
+export const logAnalyticsRequest = (
+  record: Omit<AnalyticsRequestRecord, "id">,
+) => {
+  queueStoreUpdate((store) => {
+    store.requests.push({ id: randomUUID(), ...record });
+  });
 };
 
+export const logAnalyticsEvent = (
+  record: Omit<AnalyticsEventRecord, "id" | "receivedAt">,
+) => {
+  queueStoreUpdate((store) => {
+    store.events.push({
+      id: randomUUID(),
+      receivedAt: new Date().toISOString(),
+      ...record,
+    });
+  });
+};
+
+const visitorId = (record: AnalyticsRecord) =>
+  record.userId ? `user:${record.userId}` : record.ip ? `ip:${record.ip}` : undefined;
+
+const visitorLabel = (record: AnalyticsRecord) =>
+  record.userEmail ?? record.ip ?? "Anonymous / unknown";
+
 const groupRecords = (
-  records: AnalyticsRequestRecord[],
-  getLabel: (record: AnalyticsRequestRecord) => string,
+  records: AnalyticsRecord[],
+  getLabel: (record: AnalyticsRecord) => string,
   limit: number,
 ) =>
   Array.from(
     records.reduce((groups, record) => {
-      const label = getLabel(record) || "Direct / unknown";
+      const label = getLabel(record) || "Unknown";
       const metric =
         groups.get(label) ??
         ({
           label,
           value: 0,
-          requestBytes: 0,
-          responseBytes: 0,
           averageDurationMs: 0,
           errorCount: 0,
           durationTotal: 0,
         } as AnalyticsMetric & { durationTotal: number });
       metric.value += 1;
-      metric.requestBytes += record.requestBytes;
-      metric.responseBytes += record.responseBytes;
-      metric.durationTotal += record.durationMs;
-      if (record.status >= 400) metric.errorCount += 1;
+      if ("durationMs" in record) {
+        metric.durationTotal += record.durationMs;
+        if (record.status >= 400) metric.errorCount += 1;
+      }
       groups.set(label, metric);
       return groups;
     }, new Map<string, AnalyticsMetric & { durationTotal: number }>()),
@@ -195,31 +247,151 @@ const groupRecords = (
       ...metric,
       averageDurationMs: metric.value ? Math.round(durationTotal / metric.value) : 0,
     }))
-    .sort((a, b) => b.value - a.value)
+    .sort((left, right) => right.value - left.value)
     .slice(0, limit);
 
-export const getAnalyticsSnapshot = async (): Promise<AnalyticsSnapshot> => {
-  const store = await readStore();
-  const records = [...store.requests].sort((a, b) =>
-    a.startedAt.localeCompare(b.startedAt),
+const startOfHour = (value: number) => {
+  const date = new Date(value);
+  date.setUTCMinutes(0, 0, 0);
+  return date.getTime();
+};
+
+const startOfDay = (value: number) => {
+  const date = new Date(value);
+  date.setUTCHours(0, 0, 0, 0);
+  return date.getTime();
+};
+
+const buildTrend = (
+  requests: AnalyticsRequestRecord[],
+  events: AnalyticsEventRecord[],
+  fromMs: number | undefined,
+) => {
+  const now = Date.now();
+  const useHours = fromMs !== undefined && now - fromMs <= 26 * 60 * 60 * 1000;
+  const stepMs = useHours ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  const floor = useHours ? startOfHour : startOfDay;
+  const activityTimes = [
+    ...requests.map((record) => new Date(record.startedAt).getTime()),
+    ...events.map((record) => new Date(record.occurredAt).getTime()),
+  ];
+  const firstMs = fromMs ?? Math.min(...activityTimes, now);
+  const firstBucket = floor(firstMs);
+  const lastBucket = floor(now);
+  const buckets = new Map<number, AnalyticsTrendPoint & { visitorIds: Set<string> }>();
+  for (let bucket = firstBucket; bucket <= lastBucket; bucket += stepMs) {
+    buckets.set(bucket, {
+      startedAt: new Date(bucket).toISOString(),
+      requests: 0,
+      events: 0,
+      visitors: 0,
+      errors: 0,
+      visitorIds: new Set(),
+    });
+  }
+  for (const request of requests) {
+    const point = buckets.get(floor(new Date(request.startedAt).getTime()));
+    if (!point) continue;
+    point.requests += 1;
+    if (request.status >= 400) point.errors += 1;
+    const id = visitorId(request);
+    if (id) point.visitorIds.add(id);
+  }
+  for (const event of events) {
+    const point = buckets.get(floor(new Date(event.occurredAt).getTime()));
+    if (!point) continue;
+    point.events += 1;
+    const id = visitorId(event);
+    if (id) point.visitorIds.add(id);
+  }
+  return Array.from(buckets.values()).map(({ visitorIds, ...point }) => ({
+    ...point,
+    visitors: visitorIds.size,
+  }));
+};
+
+const buildView = (
+  allRequests: AnalyticsRequestRecord[],
+  allEvents: AnalyticsEventRecord[],
+  fromMs?: number,
+): AnalyticsView => {
+  const requests = fromMs
+    ? allRequests.filter((record) => new Date(record.startedAt).getTime() >= fromMs)
+    : allRequests;
+  const events = fromMs
+    ? allEvents.filter((record) => new Date(record.occurredAt).getTime() >= fromMs)
+    : allEvents;
+  const allRecords: AnalyticsRecord[] = [...requests, ...events];
+  const visitors = new Set(allRecords.map(visitorId).filter(Boolean));
+  const identifiedUsers = new Set(
+    allRecords.map((record) => record.userId).filter(Boolean),
   );
-  const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  const lastHourRecords = records.filter(
-    (record) => new Date(record.startedAt).getTime() >= oneHourAgo,
+  const errors = requests.filter((record) => record.status >= 400).length;
+  const durationTotal = requests.reduce(
+    (total, record) => total + record.durationMs,
+    0,
   );
+  const successful = requests.filter((record) => record.status < 400).length;
 
   return {
-    generatedAt: new Date().toISOString(),
-    retainedRequestCount: records.length,
-    firstRequestAt: records[0]?.startedAt,
-    lastRequestAt: records.at(-1)?.startedAt,
-    totals: summarizeTotals(records),
-    lastHour: summarizeTotals(lastHourRecords),
-    topPaths: groupRecords(records, (record) => `${record.method} ${record.path}`, 12),
-    topUserAgents: groupRecords(records, (record) => record.userAgent ?? "", 8),
-    topReferers: groupRecords(records, (record) => record.referer ?? "", 8),
-    statusGroups: groupRecords(records, (record) => `${Math.floor(record.status / 100)}xx`, 6),
-    topUsers: groupRecords(records, (record) => record.userEmail ?? "Anonymous", 12),
-    recentRequests: records.slice(-100).reverse(),
+    from: fromMs ? new Date(fromMs).toISOString() : undefined,
+    totals: {
+      visitors: visitors.size,
+      identifiedUsers: identifiedUsers.size,
+      requests: requests.length,
+      events: events.length,
+      errors,
+      averageDurationMs: requests.length
+        ? Math.round(durationTotal / requests.length)
+        : 0,
+      successRate: requests.length
+        ? Math.round((successful / requests.length) * 10_000) / 100
+        : 100,
+    },
+    trend: buildTrend(requests, events, fromMs),
+    topPaths: groupRecords(
+      requests,
+      (record) => "path" in record ? `${record.method} ${record.path}` : "",
+      8,
+    ),
+    topEvents: groupRecords(
+      events,
+      (record) => "event" in record ? record.event : "",
+      8,
+    ),
+    topVisitors: groupRecords(allRecords, visitorLabel, 8),
+    recentRequests: requests.slice(-40).reverse(),
+    recentEvents: events.slice(-40).reverse(),
+  };
+};
+
+export const getAnalyticsSnapshot = async (): Promise<AnalyticsSnapshot> => {
+  await analyticsWriteQueue;
+  const store = await readStore();
+  const requests = [...store.requests].sort((left, right) =>
+    left.startedAt.localeCompare(right.startedAt),
+  );
+  const events = [...store.events].sort((left, right) =>
+    left.occurredAt.localeCompare(right.occurredAt),
+  );
+  const activity = [
+    ...requests.map((record) => record.startedAt),
+    ...events.map((record) => record.occurredAt),
+  ].sort();
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  return {
+    generatedAt: new Date(now).toISOString(),
+    firstActivityAt: activity[0],
+    lastActivityAt: activity.at(-1),
+    retainedRequestCount: requests.length,
+    retainedEventCount: events.length,
+    views: {
+      day: buildView(requests, events, now - dayMs),
+      week: buildView(requests, events, now - 7 * dayMs),
+      month: buildView(requests, events, now - 30 * dayMs),
+      all: buildView(requests, events),
+    },
   };
 };

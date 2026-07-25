@@ -69,6 +69,7 @@ const safeError = (error: unknown) => {
 
 export async function generateProfileDirections(
   rawInput: unknown,
+  traceContext: { sessionId?: string } = {},
 ): Promise<ProfileDirectionsResult> {
   let generation: GenerationRecord | undefined;
   let providerResult: Awaited<ReturnType<typeof generateText>> | undefined;
@@ -79,6 +80,7 @@ export async function generateProfileDirections(
     generation = await startGenerationRecord({
       kind: "profile-directions",
       model: modelId(),
+      sessionId: traceContext.sessionId,
       request: {
         system: profileDirectionsSystem,
         input: { ...input, base64: `[redacted PDF: ${input.filename}]` },

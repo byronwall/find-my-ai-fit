@@ -87,13 +87,6 @@ export const gridOutputSchema = z.object({
   refinementQuestions: z.array(refinementQuestionSchema).min(2).max(3),
 });
 
-export const focusedOutputSchema = z.object({
-  focusSummary: z.string().min(10).max(400),
-  refinementQuestion: z.string().min(5).max(180),
-  choices: z.array(z.string().min(2).max(60)).min(2).max(4),
-  useCases: z.array(useCaseSchema).min(5).max(8),
-});
-
 export const briefSchema = z.object({
   theme: z.string().min(20).max(600),
   recommendedUseCaseId: z.string().min(1),
@@ -123,15 +116,6 @@ export const generationInputSchema = z.object({
   feedback: z.string().max(1200).optional(),
 });
 
-export const focusInputSchema = z.object({
-  profile: profileSchema,
-  intent: intentSchema,
-  rowId: z.enum(rowIds),
-  columnId: z.enum(columnIds),
-  selectedTitles: z.array(z.string().max(100)).max(12),
-  direction: z.string().max(300).optional(),
-});
-
 export const briefInputSchema = z.object({
   profile: profileSchema,
   intent: intentSchema,
@@ -143,9 +127,9 @@ export type Profile = z.infer<typeof profileSchema>;
 export type Intent = z.infer<typeof intentSchema>;
 export type Direction = z.infer<typeof directionSchema>;
 export type ProfileDirections = z.infer<typeof profileDirectionsSchema>;
+export type ProfileDirectionsInput = z.infer<typeof profileDirectionsInputSchema>;
 export type GridOutput = z.infer<typeof gridOutputSchema>;
 export type RefinementQuestion = z.infer<typeof refinementQuestionSchema>;
-export type FocusedOutput = z.infer<typeof focusedOutputSchema>;
 export type Brief = z.infer<typeof briefSchema>;
 export type RowId = (typeof rowIds)[number];
 export type ColumnId = (typeof columnIds)[number];
