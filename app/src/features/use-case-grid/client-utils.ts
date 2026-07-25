@@ -14,6 +14,8 @@ type AnalyticsTransport = {
   navigator: Pick<Navigator, "sendBeacon"> | undefined;
 };
 
+const analyticsEndpoint = "/api/usage";
+
 const browserAnalyticsTransport = (): AnalyticsTransport => ({
   development: import.meta.env.DEV,
   fetch: typeof fetch === "undefined" ? undefined : fetch,
@@ -29,7 +31,7 @@ export const deliverAnalyticsEvent = (
   const body = JSON.stringify({ event, detail, occurredAt: new Date().toISOString() });
   const fallBackToBeacon = () => {
     transport.navigator?.sendBeacon(
-      "/api/events",
+      analyticsEndpoint,
       new Blob([body], { type: "application/json" }),
     );
   };
@@ -37,7 +39,7 @@ export const deliverAnalyticsEvent = (
     fallBackToBeacon();
     return;
   }
-  void transport.fetch("/api/events", {
+  void transport.fetch(analyticsEndpoint, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body,

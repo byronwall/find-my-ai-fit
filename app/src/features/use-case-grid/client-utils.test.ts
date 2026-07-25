@@ -28,7 +28,7 @@ describe("deliverAnalyticsEvent", () => {
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
 
     expect(fetch).toHaveBeenCalledWith(
-      "/api/events",
+      "/api/usage",
       expect.objectContaining({
         method: "POST",
         credentials: "same-origin",
@@ -49,6 +49,6 @@ describe("deliverAnalyticsEvent", () => {
     });
     await vi.waitFor(() => expect(sendBeacon).toHaveBeenCalledOnce());
 
-    expect(sendBeacon).toHaveBeenCalledWith("/api/events", expect.any(Blob));
+    expect(sendBeacon).toHaveBeenCalledWith("/api/usage", expect.any(Blob));
   });
 });

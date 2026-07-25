@@ -271,7 +271,7 @@ export function AnalyticsDashboard(props: AnalyticsDashboardProps) {
               <Box px={{ base: "4", md: "5" }} py="4" borderBottomWidth="1px" borderColor="brand.border">
                 <Heading as="h2" textStyle="xl">Recent event ledger</Heading>
                 <Text textStyle="sm" color="brand.muted" mt="1">
-                  Newest product events captured by <code>/api/events</code>.
+                  Newest product events captured by the product.
                 </Text>
               </Box>
               <Show

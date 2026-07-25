@@ -6,7 +6,7 @@ This file records user-visible changes, important development workflow changes, 
 
 - Added a password-protected `/admin` usage desk with 24-hour, 7-day, 30-day, and all-time views of visitors, requests, errors, paths, and captured product events. Admin access now uses `ADMIN_PASSWORD` to issue a signed 30-day HttpOnly cookie, and the existing generation inspector shares the same gate.
   - Persisted client analytics events alongside request telemetry, excluded admin traffic from product usage counts, and added empty/loading/error states for the operational dashboard.
-  - Fixed production analytics collection by registering the request middleware in SolidStart, awaiting file persistence before responses complete, and using keepalive event requests with a beacon fallback when delivery is blocked.
+  - Fixed production analytics collection by registering the request middleware in SolidStart, awaiting file persistence before responses complete, and using a blocker-resistant keepalive event route with a beacon fallback.
 
 - Split personalized work into durable, refresh-safe routes for profile review, each generated idea round, and the final brief. Session state, selections, round history, pending work, and generated briefs now persist as UUID-addressed JSON without retaining uploaded PDF bodies.
   - Corrected SolidStart's resolved client base so root deployments generate `/_server` requests instead of the invalid protocol-relative `//_server` URL.
