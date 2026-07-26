@@ -4,6 +4,9 @@ This file records user-visible changes, important development workflow changes, 
 
 ## Unreleased
 
+- Reworked the admin generation detail page into a schema-aware run inspector with readable request context, interpreted outputs, provider usage metrics, and a complete expandable field explorer in place of raw JSON dumps.
+  - Added recent generated results directly to the usage desk, with period-aware links into each readable run and session/round identifiers on future generation events.
+
 - Added a password-protected `/admin` usage desk with 24-hour, 7-day, 30-day, and all-time views of visitors, requests, errors, paths, and captured product events. Admin access now uses `ADMIN_PASSWORD` to issue a signed 30-day HttpOnly cookie, and the existing generation inspector shares the same gate.
   - Persisted client analytics events alongside request telemetry, excluded admin traffic from product usage counts, and added empty/loading/error states for the operational dashboard.
   - Fixed production analytics collection by registering the request middleware in SolidStart, awaiting file persistence before responses complete, and using a blocker-resistant keepalive event route with a beacon fallback.

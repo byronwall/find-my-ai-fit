@@ -60,27 +60,31 @@ export default function AdminRoute() {
       <Suspense fallback={<AdminLoadState />}>
         <Show
           when={!dashboard.error}
-          fallback={<AdminLoadState error />}
+          fallback={<AdminLoadState error={Boolean(dashboard.error)} />}
         >
           <Show when={dashboard.latest}>
-            {(result) => (
-              <Show
-                when={result().status === "authenticated" ? result() : undefined}
-                fallback={
-                  <AdminLogin
-                    configured={
-                      result().status === "signed-out" ? result().configured : true
-                    }
-                  />
-                }
-              >
-                {(authenticated) => (
-                  authenticated().status === "authenticated"
-                    ? <AnalyticsDashboard snapshot={authenticated().snapshot} />
-                    : null
-                )}
-              </Show>
-            )}
+            {(result) => {
+              const resolved = result();
+              return (
+                <Show
+                  when={resolved.status === "authenticated" ? resolved : undefined}
+                  fallback={
+                    <AdminLogin
+                      configured={
+                        resolved.status === "signed-out" ? resolved.configured : true
+                      }
+                    />
+                  }
+                >
+                  {(authenticated) => (
+                    <AnalyticsDashboard
+                      snapshot={authenticated().snapshot}
+                      generations={authenticated().generations}
+                    />
+                  )}
+                </Show>
+              );
+            }}
           </Show>
         </Show>
       </Suspense>

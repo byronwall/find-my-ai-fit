@@ -5,6 +5,7 @@ import {
   hasValidAdminSession,
   isAdminPasswordConfigured,
 } from "~/lib/admin/session";
+import { listGenerationRecords } from "~/lib/ai/generation-store";
 
 export const getAdminDashboard = query(async () => {
   "use server";
@@ -18,5 +19,6 @@ export const getAdminDashboard = query(async () => {
   return {
     status: "authenticated" as const,
     snapshot: await getAnalyticsSnapshot(),
+    generations: (await listGenerationRecords()).slice(0, 100),
   };
 }, "admin-dashboard");

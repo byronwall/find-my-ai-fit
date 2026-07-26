@@ -10,10 +10,13 @@ import type {
   AnalyticsSnapshot,
   AnalyticsView,
 } from "~/lib/admin/analytics";
+import type { GenerationSummary } from "~/lib/ai/generation-store";
 import { AnalyticsTrend } from "./AnalyticsTrend";
+import { RecentGenerations } from "./RecentGenerations";
 
 type AnalyticsDashboardProps = {
   snapshot: AnalyticsSnapshot;
+  generations: GenerationSummary[];
 };
 
 type Period = keyof AnalyticsSnapshot["views"];
@@ -258,6 +261,11 @@ export function AnalyticsDashboard(props: AnalyticsDashboardProps) {
               <AnalyticsTrend points={view().trend} />
             </Stack>
           </Box>
+
+          <RecentGenerations
+            generations={props.generations}
+            from={view().from}
+          />
 
           <Grid columns={{ base: 1, lg: 12 }} gap="5" alignItems="start">
             <Box

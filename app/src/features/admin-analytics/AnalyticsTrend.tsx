@@ -98,14 +98,12 @@ export function AnalyticsTrend(props: AnalyticsTrendProps) {
             </Text>
             <Text textStyle="xs" color="brand.muted">0</Text>
           </Stack>
-          <Box
-            as="svg"
+          <svg
             viewBox={`0 0 ${width} ${height}`}
-            width="full"
-            height={{ base: "11rem", md: "14rem" }}
             preserveAspectRatio="none"
             role="img"
             aria-label="Requests and captured events over time"
+            style={{ width: "100%", height: "clamp(11rem, 24vw, 14rem)" }}
           >
             <desc>
               {`Requests peak at ${formatNumber(geometry().requestPeak)} and captured events peak at ${formatNumber(geometry().eventPeak)} in this period.`}
@@ -139,7 +137,7 @@ export function AnalyticsTrend(props: AnalyticsTrendProps) {
               stroke-linecap="round"
               stroke-linejoin="round"
             />
-          </Box>
+          </svg>
           <For each={labels()}>
             {(label) => (
               <Text

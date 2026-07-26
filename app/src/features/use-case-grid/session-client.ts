@@ -67,7 +67,7 @@ export const useSessionClient = (options: SessionClientOptions) => {
       return false;
     }
     options.setFile(null);
-    track("profile_analysis_started");
+    track("profile_analysis_started", { sessionId: result.sessionId });
     navigate(`/sessions/${result.sessionId}/review`);
     return true;
   };
@@ -112,7 +112,10 @@ export const useSessionClient = (options: SessionClientOptions) => {
     }
     await revalidate(getUseCaseSession.keyFor(session.id));
     navigate(sessionIdeasUrl(session.id, result.roundId));
-    track("grid_generation_started");
+    track("grid_generation_started", {
+      sessionId: session.id,
+      ...(result.roundId ? { roundId: result.roundId } : {}),
+    });
     return true;
   };
 
@@ -140,7 +143,11 @@ export const useSessionClient = (options: SessionClientOptions) => {
     }
     await revalidate(getUseCaseSession.keyFor(session.id));
     navigate(sessionIdeasUrl(session.id, result.roundId));
-    track("grid_regeneration_started", { round: session.rounds.length + 1 });
+    track("grid_regeneration_started", {
+      sessionId: session.id,
+      ...(result.roundId ? { roundId: result.roundId } : {}),
+      round: session.rounds.length + 1,
+    });
     return true;
   };
 
@@ -174,6 +181,7 @@ export const useSessionClient = (options: SessionClientOptions) => {
     await revalidate(getUseCaseSession.keyFor(session.id));
     navigate(`/sessions/${session.id}/brief`);
     track("brief_generation_started", {
+      sessionId: session.id,
       selected: options.state.selectedIds.length,
     });
     return true;
